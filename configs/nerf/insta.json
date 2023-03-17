@@ -1,0 +1,60 @@
+{
+	"loss": {
+		"otype": "Huber"
+	},
+	"max_cached_bvh": 4000,
+	"nerf_network": "concatenation",
+	"recorder_steps": 33000,
+	"exp_params": 16,
+	"seg_weight": 40,
+	"depth_weight": 1.25,
+	"optimizer": {
+		"otype": "Ema",
+		"decay": 0.95,
+		"nested": {
+			"otype": "Adam",
+			"learning_rate": 0.0025,
+			"beta1": 0.9,
+			"beta2": 0.99,
+			"epsilon": 1e-15,
+			"l2_reg": 1e-6
+		}
+	},
+	"encoding": {
+		"otype": "HashGrid",
+		"n_levels": 16,
+		"n_features_per_level": 8,
+		"log2_hashmap_size": 17,
+		"base_resolution": 16
+	},
+	"network": {
+		"otype": "FullyFusedMLP",
+		"activation": "ReLU",
+		"output_activation": "None",
+		"n_neurons": 64,
+		"n_hidden_layers": 2,
+		"n_output_dims": 16
+	},
+	"dir_encoding": {
+		"otype": "Composite",
+		"nested": [
+			{
+				"n_dims_to_encode": 3,
+				"otype": "SphericalHarmonics",
+				"degree": 4
+			},
+			{
+				"otype": "Identity",
+				"n_bins": 4,
+				"degree": 4
+			}
+		]
+	},
+	"rgb_network": {
+		"otype": "FullyFusedMLP",
+		"activation": "ReLU",
+		"output_activation": "None",
+		"n_neurons": 64,
+		"n_hidden_layers": 3
+	}
+}

@@ -1,0 +1,730 @@
+#include <rta/recorder.h>
+
+#include <iostream>
+#include <string>
+#include <fstream>
+#include <dirent.h>
+#include <vector>
+
+#include <stb_image/stb_image_write.h>
+#include <neural-graphics-primitives/thread_pool.h>
+
+#include <rta/debug.h>
+#include <rta/core.h>
+#include <rta/helpers.h>
+#include "neural-graphics-primitives/common_device.cuh"
+
+static constexpr const char *VideoModeStr = "Floating\0Vertical\0Horizontal\0Overlay\0Normals\0Frontal\0Sweep\0";
+
+using namespace Eigen;
+namespace fs = filesystem;
+
+std::vector<std::string> get_content(const std::string &path) {
+    DIR *dir;
+    struct dirent *diread;
+    std::vector<std::string> files;
+    if ((dir = opendir(path.c_str())) != nullptr) {
+        while ((diread = readdir(dir)) != nullptr) {
+            auto f = std::string(diread->d_name);
+            if (f.find('.') == std::string::npos)
+                files.push_back(f);
+        }
+        closedir(dir);
+    } else {
+        perror("opendir");
+    }
+    return files;
+}
+
+rta::Recorder::Recorder(ngp::Testbed *ngp) : m_ngp(ngp) {
+    m_training_steps_wait = ngp->m_network_config["recorder_steps"];
+    m_output_path = m_ngp->m_data_path;
+    m_data_path = m_ngp->m_data_path;
+
+    std::string config = m_ngp->m_network_config_path.basename();
+    for (std::string str: {"experiments", config.c_str(), "debug"}) {
+        m_output_path = m_output_path / str;
+        fs::create_directory(m_output_path);
+    }
+    auto files = get_content((m_data_path / "synthetic").str());
+    std::string version = "v" + std::to_string(files.size() + 1);
+    strcpy(m_synthetic_version, version.c_str());
+}
+
+void rta::Recorder::save_depth(float *depth_gpu, const char *path, const char *name, Vector2i res3d) {
+    uint32_t w = res3d.x();
+    uint32_t h = res3d.y();
+    uint32_t size = w * h;
+    std::vector<float> depth_cpu;
+    depth_cpu.resize(size);
+    CUDA_CHECK_THROW(cudaMemcpy(depth_cpu.data(), depth_gpu, size * sizeof(float), cudaMemcpyDeviceToHost));
+
+    auto dir = m_current_output / "depth";
+
+    if (m_dst_folder.find("synthetic") == std::string::npos && m_video_mode == VideoType::Overlay) {
+        dir = m_current_output / ".." / "depth";
+    }
+
+    if (!(dir).exists()) { fs::create_directory(dir); }
+    auto file = std::string(name);
+    std::ofstream wf(dir.str() + "/" + file + ".bin", std::ios::out | std::ios::binary);
+
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            size_t i = x + res3d.x() + y * res3d.x();
+            float d = depth_cpu[i];
+            if (d < 0.f || d > 5.f) d = 0;
+            uint32_t depth = uint32_t(d * 1000.0f);
+            wf.write((char *) &depth, sizeof(uint32_t));
+        }
+    }
+    wf.close();
+}
+
+void save_rgba(Array4f *rgba_cpu, const char *path, const char *name, Vector2i res3d, std::function<float(float)> transform) {
+    uint32_t w = res3d.x();
+    uint32_t h = res3d.y();
+
+    uint8_t *pngpixels = (uint8_t *) malloc(size_t(w) * size_t(h) * 4);
+    uint8_t *dst = pngpixels;
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            size_t i = x + res3d.x() + y * res3d.x();
+            float alpha = rgba_cpu[i].w();
+            *dst++ = (uint8_t) tcnn::clamp(transform(rgba_cpu[i].x()) * 255.f, 0.f, 255.f);
+            *dst++ = (uint8_t) tcnn::clamp(transform(rgba_cpu[i].y()) * 255.f, 0.f, 255.f);
+            *dst++ = (uint8_t) tcnn::clamp(transform(rgba_cpu[i].z()) * 255.f, 0.f, 255.f);
+            *dst++ = (uint8_t) tcnn::clamp(transform(alpha) * 255.f, 0.f, 255.f);
+        }
+    }
+    // write slice
+    char filename[256];
+    snprintf(filename, sizeof(filename), "%s/%s.png", path, name);
+    stbi_write_png(filename, w, h, 4, pngpixels, w * 4);
+    free(pngpixels);
+}
+
+float linear_to_srgb(float linear) {
+    if (linear < 0.0031308f) {
+        return 12.92f * linear;
+    } else {
+        return 1.055f * std::pow(linear, 0.41666f) - 0.055f;
+    }
+}
+
+float srgb_to_linear(float srgb) {
+    if (srgb <= 0.04045f) {
+        return srgb / 12.92f;
+    } else {
+        return std::pow((srgb + 0.055f) / 1.055f, 2.4f);
+    }
+}
+
+void rta::Recorder::imgui() {
+    ImGui::Separator();
+    ImGui::Text("Record video");
+//    if (ImGui::Button("Snapshot")) snapshot();
+    if (m_record_all && !m_is_recording && !m_single_step) m_video_mode = VideoType::Floating;
+    if ((ImGui::Button("Start") || (m_ngp->m_training_step == m_training_steps_wait && !m_ngp->m_reenact)) && !m_is_recording) start();
+    ImGui::SameLine();
+    if (ImGui::Button("Stop")) stop();
+
+    if (m_is_recording) {
+        ImGui::SameLine();
+        auto str = "#" + std::to_string(m_index_frame + 1);
+        m_ngp->m_target_deform_frame = m_index_frame;
+        m_ngp->m_nerf.extra_dim_idx_for_inference = m_index_frame;
+        ImGui::Text(str.c_str());
+    }
+
+    ImGui::Combo("Mode ", (int *) &m_video_mode, VideoModeStr);
+    ImGui::SameLine();
+    ImGui::Checkbox("All", &m_record_all);
+
+    if (!m_is_recording) {
+        ImGui::PushItemWidth(100);
+        ImGui::InputInt("# fps", &m_fps, 5);
+    }
+
+    if (m_is_recording && m_index_frame >= 0) {
+        auto now = std::chrono::steady_clock::now();
+        float elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - m_start).count();
+        float value = float(m_index_frame + 1) / elapsed;
+        if (!std::isinf(value))
+            m_current_fps = value;
+        auto str = "Time " + to_string_with_precision(elapsed) + " [s] " + to_string_with_precision(m_current_fps) + " [fps] " + std::to_string(m_to_record);
+        ImGui::Text(str.c_str());
+        auto progress = float(m_index_frame) / float(m_to_record);
+        ImGui::ProgressBar(progress, ImVec2(-1, 0));
+    }
+}
+
+void rta::Recorder::start() {
+    m_json_cameras = JsonCameras();
+    auto *core = (rta::Core *) m_ngp;
+    auto root = m_output_path / "snapshot.msgpack";
+    if (m_video_mode == VideoType::Overlay)
+        m_ngp->save_snapshot(root.str(), false);
+    core->m_train = false;
+    m_index_frame = 0;
+    core->m_dataset_paths.is_training = false;
+    core->m_dataset_paths.is_retargeting = core->m_reenact;
+    core->m_dataset_paths.shuffle = false;
+    std::string mode = "test";
+    core->m_background_color.w() = 0.f;
+    if (!core->m_reenact)
+        core->reload_training_data(true, mode);
+    if (!core->m_render_ngp)
+        core->m_render_deformed = true;
+    core->m_offscreen_rendering = false;
+    core->m_dynamic_res = false;
+    m_is_recording = !m_is_recording;
+    m_start = std::chrono::steady_clock::now();
+    m_to_record = core->m_nerf.training.dataset.n_all_images;
+    if (core->m_dataset_paths.is_training)
+        m_to_record = core->m_nerf.training.dataset.n_training_images;
+    m_ngp->reset_accumulation();
+    m_ngp->reset_camera();
+    generate_floating_cameras();
+    generate_horizontal_cameras();
+    generate_vertical_cameras();
+    generate_hemisphere_cameras();
+    generate_sweep_cameras();
+    tlog::success() << "Recording has started!";
+}
+
+void rta::Recorder::stop() {
+    auto *core = (rta::Core *) m_ngp;
+    core->m_dynamic_res = true;
+    core->m_train = true;
+    m_is_recording = false;
+    m_initial_step = true;
+    m_single_step = false;
+    m_render_train_depth = false;
+    core->m_offscreen_rendering = true;
+    core->m_render_deformed = false;
+    core->m_raycast_flame_mesh = false;
+    core->m_nerf.training.view = 0;
+    core->reset_camera();
+    core->set_train(true);
+    core->reset_accumulation();
+
+    core->m_render_mode = ngp::ERenderMode::Shade;
+    core->m_background_color.w() = 1.f;
+
+    auto version = std::string(m_synthetic_version);
+
+    std::string cmd = "cp " + m_ngp->m_network_config_path.str() + " " + (m_output_path / "config.json").str();
+    system(cmd.c_str());
+    dump_cameras_json();
+
+    core->m_dataset_paths.is_training = true;
+    core->m_dataset_paths.shuffle = true;
+    core->m_dataset_paths.load_all_training = false;
+    core->m_dataset_paths.is_rendering_depth = false;
+    core->m_dataset_paths.load_to_gpu = true;
+
+    core->reload_training_data(true);
+
+    m_index_frame = 0;
+    m_average_time = 0;
+}
+
+void rta::Recorder::video() {
+    if (!m_is_recording) return;
+    size_t index = m_index_frame;
+    m_ngp->reset_accumulation();
+    m_ngp->m_target_deform_frame = index;
+    m_ngp->m_nerf.extra_dim_idx_for_inference = index;
+    auto *core = (rta::Core *) m_ngp;
+
+    switch (m_video_mode) {
+        case VideoType::Floating:
+            m_dst_folder = "floating";
+            set_camera_to_novel_view(index);
+            break;
+        case VideoType::Horizontal:
+            m_dst_folder = "horizontal";
+            set_camera_to_novel_view(index);
+            break;
+        case VideoType::Vertical:
+            m_dst_folder = "vertical";
+            set_camera_to_novel_view(index);
+            break;
+        case VideoType::Overlay:
+            m_dst_folder = "overlay";
+            set_camera_to_training_view(index);
+            break;
+        case VideoType::Sweep:
+            m_dst_folder = "sweep";
+            set_camera_to_novel_view(index);
+            m_ngp->set_fov(18);
+            break;
+        case VideoType::Normals:
+            m_dst_folder = "normals";
+            core->m_render_mode = ngp::ERenderMode::Normals;
+            if (m_horizontal_normals)
+                set_camera_to_novel_view(index);
+            else
+                set_camera_to_training_view(index);
+            break;
+        case VideoType::Frontal:
+            m_dst_folder = "frontal";
+            render_frontal();
+            break;
+    }
+}
+
+void rta::Recorder::render_frontal() {
+    create_folder();
+    m_ngp->reset_camera();
+    m_ngp->set_fov(18);
+}
+
+void rta::Recorder::set_camera_to_novel_view(size_t index) {
+    create_folder();
+    set_floating_camera(index);
+}
+
+void rta::Recorder::set_camera_to_training_view(size_t index) {
+    create_folder();
+    m_ngp->m_nerf.training.view = index;
+    auto current_camera = m_ngp->m_camera;
+    m_ngp->set_camera_to_training_view(index);
+}
+
+void rta::Recorder::dump_ground_truth() {
+    auto dir = m_output_path / "ground_truth";
+    auto &render_buffer = m_ngp->m_render_surfaces.front();
+    float alpha = 1.f;
+    auto res = render_buffer.in_resolution();
+    std::string str = std::to_string(m_index_frame);
+    auto id = std::string(5 - std::min(5, int(str.length())), '0') + str;
+    auto const &metadata = m_ngp->m_nerf.training.dataset.metadata[m_ngp->m_nerf.training.view];
+    render_buffer.overlay_image(
+            alpha,
+            Array3f::Constant(m_ngp->m_exposure) + m_ngp->m_nerf.training.cam_exposure[m_ngp->m_nerf.training.view].variable(),
+            m_ngp->m_background_color,
+            ngp::EColorSpace::SRGB,
+            metadata.pixels,
+            metadata.image_data_type,
+            metadata.resolution,
+            m_ngp->m_fov_axis,
+            m_ngp->m_zoom,
+            Vector2f::Constant(0.5f),
+            m_ngp->m_stream.get()
+    );
+
+    auto gt = render_buffer.surface_provider().array();
+    std::vector<Array4f> rgba_gt_cpu;
+    rgba_gt_cpu.resize(res.x() * res.y());
+    CUDA_CHECK_THROW(cudaMemcpy2DFromArray(rgba_gt_cpu.data(), res.x() * sizeof(Array4f), gt, 0, 0, res.x() * sizeof(Array4f), res.y(), cudaMemcpyDeviceToHost));
+    save_rgba(rgba_gt_cpu.data(), dir.str().c_str(), id.c_str(), res, [](float c) { return c; });
+    m_ngp->reset_accumulation();
+    m_index_frame++;
+}
+
+void rta::Recorder::dump_frame_buffer(std::string suffix) {
+    auto *core = (rta::Core *) m_ngp;
+    auto &render_buffer = m_ngp->m_render_surfaces.front();
+    auto dir = m_output_path / m_dst_folder;
+    ngp::BoundingBox aabb = (m_ngp->m_testbed_mode == ngp::ETestbedMode::Nerf) ? m_ngp->m_render_aabb : m_ngp->m_aabb;
+    Vector2i res = render_buffer.in_resolution();
+    auto rgba = render_buffer.accumulate_buffer();
+    auto size = res.x() * res.y();
+    auto version = std::string(m_synthetic_version);
+    std::string str = std::to_string(m_index_frame);
+    Vector2f pp = m_ngp->m_nerf.training.dataset.metadata[0].principal_point;
+    if (m_dst_folder.find("synthetic") != std::string::npos) {
+        dir = m_current_output / "raw";
+//        pp = core->m_screen_center;
+    }
+
+    auto id = std::string(5 - std::min(5, int(str.length())), '0') + str + suffix;
+
+    m_json_cameras.w = res.x();
+    m_json_cameras.h = res.y();
+    m_json_cameras.cx = res.x() * pp.x();
+    m_json_cameras.cy = res.y() * pp.y();
+    Eigen::Vector2f scale = res.cast<float>();
+    scale.x() *= core->m_relative_focal_length.x();
+    scale.y() *= core->m_relative_focal_length.y();
+    m_json_cameras.fl = scale;
+
+    JsonFrame frame;
+    Matrix4f C = Matrix4f::Identity();
+    C.block<3, 4>(0, 0) = core->m_camera;
+    C.block<3, 1>(0, 3) -= Vector3f::Constant(0.5f);
+//    frame.transform_matrix = C.inverse();
+    frame.transform_matrix = C;
+
+    frame.exp_path = "flame/exp/" + id + ".txt";
+    frame.eyes_path = "flame/eyes/" + id + ".txt";
+    frame.mesh_path = "meshes/" + id + ".obj";
+    m_json_cameras.frames.push_back(frame);
+
+    std::vector<Array4f> rgba_pred_cpu;
+    rgba_pred_cpu.resize(size);
+    CUDA_CHECK_THROW(cudaMemcpy(rgba_pred_cpu.data(), rgba, size * sizeof(Array4f), cudaMemcpyDeviceToHost));
+    std::function<float(float)> func = [](float c) { return c; };
+    if (core->m_render_mode == ngp::ERenderMode::Normals)
+        func = srgb_to_linear;
+    save_rgba(rgba_pred_cpu.data(), dir.str().c_str(), id.c_str(), res, func);
+
+    if (m_dst_folder.find("synthetic") != std::string::npos || m_video_mode == VideoType::Overlay) {
+        save_depth(render_buffer.depth_buffer(), dir.str().c_str(), id.c_str(), render_buffer.in_resolution());
+    }
+
+    m_ngp->reset_accumulation();
+    m_index_frame++;
+    m_average_time += m_current_fps;
+}
+
+void rta::Recorder::create_folder() {
+    auto root = m_output_path;
+    if (!root.exists()) {
+        fs::create_directory(root);
+    }
+    auto version = std::string(m_synthetic_version);
+    auto dir = root / m_dst_folder;
+    if (m_dst_folder.find("synthetic") != std::string::npos) {
+        dir = m_data_path / "synthetic";
+        if (!dir.exists()) { fs::create_directories(dir); }
+        dir = dir / version;
+        if (!dir.exists()) { fs::create_directories(dir); }
+        dir = dir / m_dst_folder;
+        if (!dir.exists()) { fs::create_directories(dir); }
+        if (!(dir / "raw").exists()) { fs::create_directory(dir / "raw"); }
+        if (!(dir / "depth").exists()) { fs::create_directory(dir / "depth"); }
+    } else {
+        fs::create_directory(dir);
+    }
+
+    m_current_output = dir;
+}
+
+void rta::Recorder::set_floating_camera(size_t index) {
+    auto rt = m_floating_cameras[index];
+    if (m_dst_folder == "horizontal") rt = m_horizontal_cameras[index];
+    if (m_dst_folder == "normals") rt = m_horizontal_cameras[index];
+    if (m_dst_folder == "synthetic_horizontal") rt = m_horizontal_cameras[index];
+    if (m_dst_folder == "synthetic_vertical") rt = m_vertical_cameras[index];
+    if (m_dst_folder == "synthetic_floating") rt = m_floating_cameras[index];
+    if (m_dst_folder == "synthetic_hemisphere" || m_dst_folder == "synthetic_depth") rt = m_hemisphere_cameras[index];
+    if (m_dst_folder == "vertical") rt = m_vertical_cameras[index];
+    if (m_dst_folder == "sweep") rt = m_sweep_cameras[index];
+
+//    if (m_dst_folder == "synthetic_train_depth") rt = m_average_camera;
+
+    m_ngp->first_training_view();
+    m_ngp->m_camera = rt;
+    m_ngp->m_smoothed_camera = rt;
+}
+
+void rta::Recorder::step() {
+    if (m_single_step) {
+        stop();
+    };
+
+    // Skip first rendering to render to the buffer in the program main loop
+    if (m_initial_step || !m_is_recording) {
+        m_initial_step = false;
+        return;
+    }
+
+    if (m_index_frame >= m_to_record && m_is_recording) {
+        stop();
+        if (m_record_all) {
+            next();
+        }
+    }
+
+    if (m_index_frame < m_to_record)
+        video();
+}
+
+float clip(float n, float lower, float upper) {
+    return std::max(lower, std::min(n, upper));
+}
+
+Eigen::Matrix3f lootAt(const Vector3f &from, const Vector3f &to) {
+    auto dir = (to - from).normalized();
+    Eigen::Matrix3f camera = Eigen::Matrix3f::Identity();
+    Eigen::Vector3f up = {0.0f, 1.0f, 0.0f};
+    camera.col(0) = dir.cross(up).normalized();
+    camera.col(1) = dir.cross(camera.col(0)).normalized();
+    camera.col(2) = dir.normalized();
+    return camera;
+}
+
+Eigen::Matrix<float, 3, 4> to(Eigen::Matrix<float, 3, 4> camera, const Matrix3f &target) {
+    Matrix3f R = camera.block<3, 3>(0, 0);
+    Vector3f from = camera.col(3);
+    Vector3f to = target * from;
+
+    Matrix3f gt_lookat = lootAt(from, {0.5, 0.5, 0.5});
+    Matrix3f novel_lookat = lootAt(to, {0.5, 0.5, 0.5});
+
+    Matrix3f Rt = R * gt_lookat.inverse();
+    Rt = Rt * novel_lookat;
+
+    Eigen::Matrix<float, 3, 4> C = Eigen::Matrix<float, 3, 4>::Zero();
+
+    C.block<3, 3>(0, 0) = Rt;
+    C.block<3, 1>(0, 3) = to;
+
+    return C;
+}
+
+void rta::Recorder::generate_floating_cameras() {
+    m_floating_cameras.clear();
+    set_neutral_camera();
+    Eigen::Matrix<float, 3, 4> start = m_neutral_camera;
+    Vector3f center = {0.5f, 0.5f, 0.5f};
+    int views = m_to_record;
+    for (int i = 0; i < views; ++i) {
+        float t = float(i) / float(views);
+        float pitch = 0.15f * std::cos(t * 2.f * M_PI);
+        float yaw = 0.35f * std::sin(t * 2.f * M_PI);
+
+        AngleAxisf x(pitch, Vector3f::UnitX());
+        AngleAxisf y(yaw, Vector3f::UnitY());
+        Matrix3f rot = (y * x).toRotationMatrix();
+
+        Eigen::Matrix<float, 3, 4> tmp = start;
+        tmp.col(3) = tmp.col(3) - center;
+        Eigen::Matrix<float, 3, 4> camera = rot * tmp;
+        camera.col(3) = camera.col(3) + center;
+
+        camera.block<3, 3>(0, 0) = lootAt(camera.col(3), {0.5, 0.5, 0.5});
+        m_floating_cameras.emplace_back(camera);
+    }
+}
+
+void rta::Recorder::generate_horizontal_cameras() {
+    m_horizontal_cameras.clear();
+    set_neutral_camera();
+    int views = m_to_record;
+    float angle = m_horizontal_angle;
+    float anchor = angle * M_PI / 180.f;
+    float t = 2.f * angle / float(views);
+    float k = 0.f;
+    Eigen::Matrix<float, 3, 4> start = m_neutral_camera;
+    Vector3f center = {0.5f, 0.5f, 0.5f};
+    for (int i = 0; i < views; ++i) {
+        float yaw = anchor - k * M_PI / 180.f;
+        k += t;
+        AngleAxisf y(yaw, Vector3f::UnitY());
+        Matrix3f rot = y.toRotationMatrix();
+
+        Eigen::Matrix<float, 3, 4> tmp = start;
+        tmp.col(3) = tmp.col(3) - center;
+        Eigen::Matrix<float, 3, 4> camera = rot * tmp;
+        camera.col(3) = camera.col(3) + center;
+
+        camera.block<3, 3>(0, 0) = lootAt(camera.col(3), {0.5, 0.5, 0.5});
+        m_horizontal_cameras.emplace_back(camera);
+    }
+}
+
+void rta::Recorder::generate_sweep_cameras() {
+    m_sweep_cameras.clear();
+    m_ngp->reset_camera();
+    m_ngp->set_fov(18);
+    auto camera = m_ngp->m_camera;
+    int views = m_to_record + 1;
+    float angle = 5;
+    float anchor = 0;
+    float t = 2.f * angle / float(views);
+    float k = 0.f;
+    float yaw = 0;
+    Eigen::Matrix<float, 3, 4> start = m_neutral_camera;
+    Vector3f center = {0.5f, 0.5f, 0.5f};
+    float direction = 1;
+    for (int i = 1; i < views; ++i) {
+//        if (i == int(views / 3)) {
+//            anchor = yaw;
+//            k = 0;
+//            direction = -1;
+//        }
+//        yaw = anchor + direction * k * M_PI / 180.f;
+//        k += t;
+//        AngleAxisf y(yaw, Vector3f::UnitY());
+//        Matrix3f rot = y.toRotationMatrix();
+        float t = float(i) / float(views);
+        float pitch = 0.05f * std::cos(t * 2.f * M_PI) - 0.1;
+        float yaw = 0.2f * std::sin(t * 2.f * M_PI);
+
+        AngleAxisf x(pitch, Vector3f::UnitX());
+        AngleAxisf y(yaw, Vector3f::UnitY());
+        Matrix3f rot = (y * x).toRotationMatrix();
+
+        Eigen::Matrix<float, 3, 4> tmp = start;
+        tmp.col(3) = tmp.col(3) - center;
+        Eigen::Matrix<float, 3, 4> camera = rot * tmp;
+        camera.col(3) = camera.col(3) + center;
+
+        camera.block<3, 3>(0, 0) = lootAt(camera.col(3), {0.5, 0.5, 0.5});
+        m_sweep_cameras.emplace_back(camera);
+    }
+}
+
+void rta::Recorder::generate_vertical_cameras() {
+    m_vertical_cameras.clear();
+    set_neutral_camera();
+    Eigen::Matrix<float, 3, 4> start = m_neutral_camera;
+    Vector3f center = {0.5f, 0.5f, 0.5f};
+    int views = m_to_record;
+    float angle = 10.f;
+    float anchor = angle * M_PI / 180.f;
+    float t = 2.f * angle / float(views);
+    float k = 0.f;
+    for (int i = 0; i < views; ++i) {
+        float roll = anchor - k * M_PI / 180.f;
+        k += t;
+        AngleAxisf y(-roll, Vector3f::UnitX());
+        Matrix3f rot = y.toRotationMatrix();
+
+        Eigen::Matrix<float, 3, 4> tmp = start;
+        tmp.col(3) = tmp.col(3) - center;
+        Eigen::Matrix<float, 3, 4> camera = rot * tmp;
+        camera.col(3) = camera.col(3) + center;
+
+        camera.block<3, 3>(0, 0) = lootAt(camera.col(3), {0.5, 0.5, 0.5});
+        m_vertical_cameras.emplace_back(camera);
+    }
+}
+
+void rta::Recorder::generate_hemisphere_cameras() {
+    m_hemisphere_cameras.clear();
+    set_neutral_camera();
+    int views = m_to_record;
+    int views_x = 50;
+    int views_y = views / views_x;
+    float angle_x = 20.f;
+    float angle_y = 30.f;
+    float anchor_x = angle_x * M_PI / 180.f;
+    float anchor_y = angle_y * M_PI / 180.f;
+    float t_y = 2.f * angle_y / float(views_y);
+    float k_y = 0.f;
+    Eigen::Matrix<float, 3, 4> start = m_neutral_camera;
+    Vector3f center = {0.5f, 0.5f, 0.5f};
+    for (int i = 0; i < views_y; ++i) {
+        float yaw = anchor_y - k_y * M_PI / 180.f;
+        k_y += t_y;
+        AngleAxisf y(yaw, Vector3f::UnitY());
+        float t_x = 2.f * angle_x / float(views_x);
+        float k_x = 0.f;
+        for (int j = 0; j < views_x; ++j) {
+            float roll = anchor_x - k_x * M_PI / 180.f;
+            k_x += t_x;
+            AngleAxisf x(-roll, Vector3f::UnitX());
+            Matrix3f rot = (x * y).toRotationMatrix();
+
+            Eigen::Matrix<float, 3, 4> camera = Eigen::Matrix<float, 3, 4>::Zero();
+
+            // The origin for rotations has to be 0,0,0
+            Vector3f tmp = start.col(3) - center;
+            camera.col(3) = rot * tmp;
+            camera.col(3) += center;
+
+            camera.block<3, 3>(0, 0) = lootAt(camera.col(3), {0.5, 0.5, 0.5});
+            m_hemisphere_cameras.emplace_back(camera);
+        }
+    }
+}
+
+
+void rta::Recorder::next() {
+    if ((m_video_mode == VideoType::Overlay) && m_record_all) {
+        exit(0);
+    }
+    m_video_mode = static_cast<VideoType>(static_cast<int>(m_video_mode) + 1);
+    start();
+}
+
+void rta::Recorder::set_neutral_camera() {
+    auto size = m_ngp->m_nerf.training.transforms.size();
+    m_neutral_camera = Eigen::Matrix<float, 3, 4>::Zero();
+    Vector3f t = Vector3f::Zero();
+    for (auto transform: m_ngp->m_nerf.training.transforms) {
+        m_neutral_camera += transform.start;
+        t += transform.start.col(3);
+    }
+    m_neutral_camera /= float(size);
+    m_average_camera = m_neutral_camera;
+    t /= float(size);
+    auto z = m_neutral_camera.col(3).z();
+    m_ngp->reset_camera();
+    m_neutral_camera = m_ngp->m_camera;
+    m_neutral_camera.col(3).z() = t.z();
+//    std::cout << "Average  " << t.z() - 0.5f << std::endl;
+//    m_average_camera = m_ngp->m_nerf.training.transforms[size - 5].start;
+}
+
+void rta::Recorder::snapshot() {
+    m_dst_folder = "";
+    dump_frame_buffer();
+}
+
+void rta::Recorder::progress() {
+    if (!m_single_step) {
+        m_video_mode = VideoType::Overlay;
+        m_single_step = true;
+        m_dst_folder = "progress";
+        create_folder();
+        start();
+        m_index_frame = 12;
+        video();
+        m_dst_folder = "progress";
+        m_ngp->m_training_step++;
+    }
+}
+
+void rta::Recorder::dump_cameras_json() {
+    nlohmann::json main;
+    main.dump(4);
+    main["synthetic"] = true;
+    main["h"] = m_json_cameras.h;
+    main["w"] = m_json_cameras.w;
+    main["fl_x"] = m_json_cameras.fl.x();
+    main["fl_y"] = m_json_cameras.fl.y();
+    main["cx"] = m_json_cameras.cx;
+    main["cy"] = m_json_cameras.cy;
+    main["integer_depth_scale"] = 0.001f;
+    auto data_array = nlohmann::json::array();
+
+    for (auto &frame: m_json_cameras.frames) {
+        nlohmann::json data;
+        data.dump(4);
+        data["depth_path"] = frame.depth_path;
+        data["exp_path"] = frame.exp_path;
+        data["eyes_path"] = frame.eyes_path;
+        data["file_path"] = frame.file_path;
+        data["mesh_path"] = frame.mesh_path;
+        data["seg_mask_path"] = frame.seg_mask_path;
+
+        auto camera = nlohmann::json::array();
+        for (int m = 0; m < 4; ++m) {
+            auto row = nlohmann::json::array();
+            for (int n = 0; n < 4; ++n) {
+                row.push_back(frame.transform_matrix(m, n));
+            }
+            camera.push_back(row);
+        }
+        data["transform_matrix"] = camera;
+        data_array.push_back(data);
+    }
+
+    std::sort(data_array.begin(), data_array.end(), [](const auto &frame1, const auto &frame2) {
+        return frame1["mesh_path"] < frame2["mesh_path"];
+    });
+
+    main["frames"] = data_array;
+
+    auto version = std::string(m_synthetic_version);
+    std::ofstream file(m_current_output.str() + "/../transforms_" + m_dst_folder + ".json");
+    file << std::setw(4) << main << std::endl;
+    file.close();
+    m_json_cameras = JsonCameras();
+}

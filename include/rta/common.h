@@ -1,0 +1,7 @@
+#ifndef REAL_TIME_AVATAR_COMMON_H
+#define REAL_TIME_AVATAR_COMMON_H
+
+#define RTA_NAMESPACE_BEGIN namespace rta {
+#define RTA_NAMESPACE_END }
+
+#endif //REAL_TIME_AVATAR_COMMON_H
