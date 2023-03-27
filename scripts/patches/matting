@@ -1,0 +1,122 @@
+diff --git a/inference.py b/inference.py
+index a116754..5d4fd12 100644
+--- a/inference.py
++++ b/inference.py
+@@ -118,8 +118,8 @@ def convert_video(model,
+         with torch.no_grad():
+             bar = tqdm(total=len(source), disable=not progress, dynamic_ncols=True)
+             rec = [None] * 4
+-            for src in reader:
+-
++            for idx, src in enumerate(reader):
++                folder = source.files[idx].replace(input_source, "")
+                 if downsample_ratio is None:
+                     downsample_ratio = auto_downsample_ratio(*src.shape[2:])
+ 
+@@ -127,16 +127,16 @@ def convert_video(model,
+                 fgr, pha, *rec = model(src, *rec, downsample_ratio)
+ 
+                 if output_foreground is not None:
+-                    writer_fgr.write(fgr[0])
++                    writer_fgr.write(fgr[0], folder)
+                 if output_alpha is not None:
+-                    writer_pha.write(pha[0])
++                    writer_pha.write(pha[0], folder)
+                 if output_composition is not None:
+                     if output_type == 'video':
+                         com = fgr * pha + bgr * (1 - pha)
+                     else:
+                         fgr = fgr * pha.gt(0)
+                         com = torch.cat([fgr, pha], dim=-3)
+-                    writer_com.write(com[0])
++                    writer_com.write(com[0], folder)
+                 
+                 bar.update(src.size(1))
+ 
+@@ -205,3 +205,6 @@ if __name__ == '__main__':
+     )
+     
+     
++'''
++--variant resnet50 --checkpoint model/rvm_resnet50.pth --device cuda:0 --input-source /home/wzielonka/tracker-internal/nerf/wojtek_kinect/train_background/ --output-type png_sequence --output-composition /home/wzielonka/tracker-internal/nerf/wojtek_kinect/train/ --num-workers 12
++'''
+diff --git a/inference_utils.py b/inference_utils.py
+index d651dc0..0098334 100644
+--- a/inference_utils.py
++++ b/inference_utils.py
+@@ -5,6 +5,7 @@ import numpy as np
+ from torch.utils.data import Dataset
+ from torchvision.transforms.functional import to_pil_image
+ from PIL import Image
++from pathlib import Path
+ 
+ 
+ class VideoReader(Dataset):
+@@ -31,7 +32,7 @@ class VideoReader(Dataset):
+ class VideoWriter:
+     def __init__(self, path, frame_rate, bit_rate=1000000):
+         self.container = av.open(path, mode='w')
+-        self.stream = self.container.add_stream('h264', rate=f'{frame_rate:.4f}')
++        self.stream = self.container.add_stream('h264', rate=round(frame_rate))
+         self.stream.pix_fmt = 'yuv420p'
+         self.stream.bit_rate = bit_rate
+     
+@@ -55,14 +56,22 @@ class VideoWriter:
+ class ImageSequenceReader(Dataset):
+     def __init__(self, path, transform=None):
+         self.path = path
+-        self.files = sorted(os.listdir(path))
++        # self.files = sorted(os.listdir(path))
++
++        self.files = []
++        for path in Path(path).rglob('*.png'):
++            self.files.append(str(path))
++        self.files = sorted(self.files)
++
++        # self.files = sorted(list(filter(lambda f: '.png' in f, self.files)))
+         self.transform = transform
+         
+     def __len__(self):
+         return len(self.files)
+     
+     def __getitem__(self, idx):
+-        with Image.open(os.path.join(self.path, self.files[idx])) as img:
++        #with Image.open(os.path.join(self.path, self.files[idx])) as img:
++        with Image.open(self.files[idx]) as img:
+             img.load()
+         if self.transform is not None:
+             return self.transform(img)
+@@ -73,16 +82,29 @@ class ImageSequenceWriter:
+     def __init__(self, path, extension='jpg'):
+         self.path = path
+         self.extension = extension
++        # self.counter = 341
+         self.counter = 0
+         os.makedirs(path, exist_ok=True)
+     
+-    def write(self, frames):
++    def write(self, frames, folder):
++        i = -1
++        beginning = True
++        out = ""
++        while True:
++            i += 1
++            if i == len(folder):
++                break
++            if folder[i] == '/' and beginning:
++                continue
++            else:
++                beginning = False
++            out += folder[i]
++
+         # frames: [T, C, H, W]
++        Path(self.path, Path(out).parent).mkdir(parents=True, exist_ok=True)
+         for t in range(frames.shape[0]):
+-            to_pil_image(frames[t]).save(os.path.join(
+-                self.path, str(self.counter).zfill(4) + '.' + self.extension))
++            to_pil_image(frames[t]).save(os.path.join(self.path, out))
+             self.counter += 1
+             
+     def close(self):
+         pass
+-        

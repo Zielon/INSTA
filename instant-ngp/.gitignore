@@ -1,0 +1,15 @@
+/.vscode
+/.vs
+/build*
+/figures
+/out
+/results
+/tmp
+/venv
+/video
+/*.json
+*.msgpack
+*.training
+__pycache__
+.DS_Store
+imgui.ini

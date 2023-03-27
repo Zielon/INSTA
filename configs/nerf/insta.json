@@ -2,9 +2,14 @@
 	"loss": {
 		"otype": "Huber"
 	},
-	"max_cached_bvh": 4000,
 	"nerf_network": "concatenation",
 	"recorder_steps": 33000,
+	"beta_loss": 0,
+	"use_eyes": false,
+	"optimize_latent_code": false,
+	"use_ngp": false,
+	"penalize_density_alpha": false,
+	"geo_params": 0,
 	"exp_params": 16,
 	"seg_weight": 40,
 	"depth_weight": 1.25,
@@ -24,7 +29,7 @@
 		"otype": "HashGrid",
 		"n_levels": 16,
 		"n_features_per_level": 8,
-		"log2_hashmap_size": 17,
+		"log2_hashmap_size": 18,
 		"base_resolution": 16
 	},
 	"network": {

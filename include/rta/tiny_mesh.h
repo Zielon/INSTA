@@ -1,3 +1,20 @@
+/*
+ -*- coding: utf-8 -*-
+Max-Planck-Gesellschaft zur Förderung der Wissenschaften e.V. (MPG) is
+holder of all proprietary rights on this computer program.
+You can only use this computer program if you have closed
+a license agreement with MPG or you get the right to use the computer
+program from someone who is authorized to grant you that right.
+Any use of the computer program without a valid license is prohibited and
+liable to prosecution.
+
+Copyright©2023 Max-Planck-Gesellschaft zur Förderung
+der Wissenschaften e.V. (MPG). acting on behalf of its Max Planck Institute
+for Intelligent Systems. All rights reserved.
+
+Contact: insta@tue.mpg.de
+*/
+
 #ifndef REAL_TIME_AVATAR_TINY_MESH_H
 #define REAL_TIME_AVATAR_TINY_MESH_H
 
@@ -6,7 +23,6 @@
 #include <neural-graphics-primitives/bounding_box.cuh>
 
 #include "common.h"
-#include "nn.h"
 #include "masking.h"
 
 #include <string>
@@ -41,7 +57,6 @@ public:
     std::vector<ngp::Triangle> triangles_cpu;
     std::vector<Eigen::Vector3f> samples;
     std::vector<uint32_t> samples_ids;
-//    std::shared_ptr<FlannTree> tree;
     std::shared_ptr<ngp::TriangleBvh> triangle_bvh;
     std::shared_ptr<Masking> m_masking;
     Eigen::Vector3f m_centorid{};
@@ -50,7 +65,6 @@ public:
 
 private:
     cudaStream_t m_inference_stream;
-//    NearsetNeighbours m_nn;
     int m_max_samples_triangle = 4;
 
     void load(const std::string& path);

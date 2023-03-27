@@ -1,3 +1,20 @@
+/*
+ -*- coding: utf-8 -*-
+Max-Planck-Gesellschaft zur Förderung der Wissenschaften e.V. (MPG) is
+holder of all proprietary rights on this computer program.
+You can only use this computer program if you have closed
+a license agreement with MPG or you get the right to use the computer
+program from someone who is authorized to grant you that right.
+Any use of the computer program without a valid license is prohibited and
+liable to prosecution.
+
+Copyright©2023 Max-Planck-Gesellschaft zur Förderung
+der Wissenschaften e.V. (MPG). acting on behalf of its Max Planck Institute
+for Intelligent Systems. All rights reserved.
+
+Contact: insta@tue.mpg.de
+*/
+
 #include <rta/core.h>
 
 #include <algorithm>
@@ -95,16 +112,14 @@ __global__ void shade_kernel_sdf(
 }
 
 void rta::Core::imgui() {
-    bool current_rendering_deform = m_render_deformed;
-    bool current_rendering_ngp = m_render_ngp;
-    bool current_m_use_gpu_for_nn = m_use_gpu_for_nn;
     bool mapper_network = typeid(*m_nerf_network.get()) == typeid(ngp::NerfNetworkMapper<ngp::precision_t>);
-
-    float elapsed_training = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_training_start_time_point).count();
 
     ImGui::Begin("Instant Volumetric Avatars", nullptr);
 
     auto str = m_data_path.basename();
+    if (m_data_path.is_file())
+        str = m_data_path.parent_path().basename();
+
     std::transform(str.begin(), str.end(), str.begin(), ::toupper);
 
     ImGui::Text("Actor     = %s", str.c_str());
@@ -135,36 +150,29 @@ void rta::Core::imgui() {
     ImGui::PopStyleColor();
     ImGui::Checkbox("Raycast FLAME", &m_raycast_flame_mesh);
     if (m_raycast_flame_mesh) {
-        ImGui::Checkbox("   cosine", &m_raycast_normal);
+        ImGui::Checkbox("   normal/cosine", &m_raycast_normal);
     }
     ImGui::Checkbox("Render ground truth", &m_render_ground_truth);
-    ImGui::Checkbox("NGP Menu", &m_ngp_menu);
-//    ImGui::Checkbox("Disable interp F", &m_disable_interp);
-    ImGui::Checkbox("Render NGP", &m_render_ngp);
+    ImGui::Checkbox("Render deformed", &m_render_deformed);
     ImGui::Checkbox("Occ Grid Isosurface", &m_iso_surface_occ_grid);
-//    ImGui::Checkbox("Render deformed", &m_render_deformed);
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 0, 255));
-    ImGui::Checkbox("Offscreen rendering", &m_offscreen_rendering);
+    ImGui::Checkbox("SPEED UP", &m_offscreen_rendering);
     ImGui::PopStyleColor();
-    ImGui::PushItemWidth(100);
+    ImGui::PushItemWidth(120);
 
     reset_accumulation();
 
     if (m_training_step > 500) {
         m_nerf.training.seg_mask_supervision_lambda = m_network_config["seg_weight"];
-//        m_nerf.training.penalize_density_alpha = m_network_config["penalize_density_alpha"];
+        m_nerf.training.penalize_density_alpha = m_network_config["penalize_density_alpha"];
     }
 
-    if (current_rendering_deform != m_render_deformed) {
-        m_train = !m_render_deformed;
+    if (m_training_step > 100) {
+        m_nerf.training.beta = m_network_config["beta_loss"];
     }
 
-    if ((current_rendering_ngp != m_render_ngp) || (current_m_use_gpu_for_nn != m_use_gpu_for_nn)) {
-        m_render_deformed = false;
-    }
-
-    ImGui::PushItemWidth(100);
-    ImGui::InputInt("Frame ID", &m_target_deform_frame, 5);
+    ImGui::PushItemWidth(120);
+    ImGui::InputInt("Current Mesh", &m_target_deform_frame, 2);
 
     m_recorder->imgui();
 
@@ -179,7 +187,7 @@ void rta::Core::imgui() {
 
     ImGui::Separator();
     ImGui::Text("Control");
-    ImGui::Text("WSDA - camera\nF - FLAME\nK - cameras");
+    ImGui::Text("WSDA - camera\nF - raycast FLAME\nK - show cameras\nLeft mouse buttons");
 }
 
 void rta::Core::post_rendering() {
@@ -188,17 +196,18 @@ void rta::Core::post_rendering() {
 }
 
 void rta::Core::load_training_data(const std::string &data_path) {
-    if (m_network_config.contains("use_ngp")) m_render_ngp = m_network_config["use_ngp"];
+//    m_nerf.training.optimize_extrinsics = m_render_ngp;
     if (m_network_config.contains("disable_interp")) m_disable_interp = m_network_config["disable_interp"];
+    if (m_network_config.contains("dump_progress")) m_dump_progress = m_network_config["dump_progress"];
     if (m_network_config.contains("optimize_latent_code")) m_optimize_latent_code = m_network_config["optimize_latent_code"];
     if (m_network_config.contains("max_cached_bvh")) n_max_cached_bvh = m_network_config["max_cached_bvh"];
 
     m_nerf.training.depth_supervision_lambda = m_network_config["depth_weight"];
-//    N_GEO_PARAMS = m_network_config["geo_params"];
+    N_GEO_PARAMS = m_network_config["geo_params"];
     N_EXP_PARAMS = m_network_config["exp_params"];
     N_EYES_PARAMS = N_EXP_PARAMS;
 
-//    m_use_eyes = m_network_config["use_eyes"];
+    m_use_eyes = m_network_config["use_eyes"];
     m_use_geo = N_GEO_PARAMS > 0;
     m_use_exp = N_EXP_PARAMS > 0;
 
@@ -222,23 +231,14 @@ void rta::Core::load_meshes(const std::string &data_path, bool init_latent) {
     if (m_use_geo) n_extra_dims += N_GEO_PARAMS;
 
     std::vector<float> exp_pca_cpu(N_EXP_PARAMS * (n_images + 1));
-    std::vector<float> eyes_pca_cpu(N_EYES_PARAMS * (n_images + 1));
 
     float *exp_dst = exp_pca_cpu.data();
-    float *eyes_dst = eyes_pca_cpu.data();
     for (uint32_t i = 0; i < n_images; ++i) {
         auto path_exp = m_nerf.training.dataset.exp_paths[i];
-        auto path_eyes = m_nerf.training.dataset.eyes_paths[i];
         auto exp = read_flame_params(path_exp, N_EXP_PARAMS);
         for (int p = 0; p < N_EXP_PARAMS; ++p) exp_dst[p] = exp[p];
 
-        if (path_eyes.size() > 0) {
-            auto eyes = read_flame_params(path_eyes, N_EYES_PARAMS);
-            for (int p = 0; p < N_EYES_PARAMS; ++p) eyes_dst[p] = eyes[p];
-        }
-
         exp_dst += N_EXP_PARAMS;
-        eyes_dst += N_EYES_PARAMS;
     }
 
     std::vector<float> extra_dims_cpu(n_extra_dims * (n_images + 1)); // n_images + 1 since we use an extra 'slot' for the inference latent code
@@ -265,7 +265,6 @@ void rta::Core::load_meshes(const std::string &data_path, bool init_latent) {
         }
 
     m_nerf.training.extra_dims_gpu.resize_and_copy_from_host(extra_dims_cpu);
-    eyes_pca_gpu.resize_and_copy_from_host(eyes_pca_cpu);
     exp_pca_gpu.resize_and_copy_from_host(exp_pca_cpu);
     m_nerf.training.dataset.n_extra_learnable_dims = n_extra_dims;
     m_nerf.training.optimize_extra_dims = m_optimize_latent_code;
@@ -275,6 +274,8 @@ void rta::Core::load_meshes(const std::string &data_path, bool init_latent) {
     std::atomic<int> n_loaded{0};
 
     auto current_canonical = m_data_path / "canonical.obj";
+    if (m_data_path.is_file())
+        current_canonical = m_data_path.parent_path() / "canonical.obj";
 
     m_masking = std::make_shared<Masking>(current_canonical.str(), filesystem::path("."));
     m_canonical_shape = std::make_shared<TinyMesh>(current_canonical.str(), m_stream.get(), m_masking, nullptr);
@@ -330,9 +331,7 @@ void rta::Core::load_meshes(const std::string &data_path, bool init_latent) {
     m_canon_bvh_gpu = m_canonical_shape->triangle_bvh->nodes_gpu();
     m_canon_tris_gpu = m_canonical_shape->triangles_gpu.data();
 
-//    tlog::success() << "Loaded " << m_meshes.size() << " meshes after " << tlog::durationToString(progress.duration());
-
-//    test_raycasting();
+    tlog::success() << "Loaded " << m_meshes.size() << " meshes after " << tlog::durationToString(progress.duration());
 }
 
 tcnn::GPUMatrix<float> rta::Core::surface_closest_point(const tcnn::GPUMatrix<float> &coords, cudaStream_t stream) {
@@ -455,7 +454,6 @@ __global__ void warp(
         const ngp::TrainingXForm *training_xforms,
         default_rng_t rng,
         float *exp_cond,
-        float *eyes_cond,
         uint32_t extra_dims,
         bool use_eye_cond,
         int *adjacency,
@@ -518,10 +516,10 @@ __global__ void warp(
         }
     }
 
-    if (use_eye_cond && mask_id == 1) {
-        for (int m = 0; m < extra_dims; ++m) {
-            samples[j + offset - extra_dims + m] = eyes_cond[frame_id * extra_dims + m];
-        }
+    // Geo
+    if (use_geo) {
+        float cosine = (point - deformed.centroid()).normalized().dot(deformed.normal());
+        samples[j + offset - 1] = cosine;
     }
 }
 
@@ -597,7 +595,6 @@ tcnn::GPUMatrix<float> rta::Core::surface_closest_point_gpu(uint32_t n_elements,
                   m_nerf.training.transforms_gpu.data(),
                   m_random_generator,
                   exp_pca_gpu.data(),
-                  eyes_pca_gpu.data(),
                   m_nerf_network->n_extra_dims(),
                   m_use_eyes,
                   m_adjacency_gpu.data(),
@@ -627,7 +624,6 @@ tcnn::GPUMatrix<float> rta::Core::render_deformed_gpu(uint32_t n_elements, float
                   m_nerf.training.transforms_gpu.data(),
                   m_random_generator,
                   exp_pca_gpu.data(),
-                  eyes_pca_gpu.data(),
                   m_nerf_network->n_extra_dims(),
                   m_use_eyes,
                   m_adjacency_gpu.data(),
@@ -671,13 +667,17 @@ void rta::Core::reload_training_data(bool force, std::string mode) {
         m_nerf.training.extra_dims_gpu.copy_to_host(m_latent_codes);
     }
 
+    auto src = m_data_path;
+    if (m_data_path.is_file())
+        src = m_data_path.parent_path();
+
     if ((!m_nerf.training.optimize_extra_dims && ((m_training_step > 0 && fast_mod(m_training_step, 1500) == 0))) || force) {
         std::vector<fs::path> json_paths;
         if (!m_json_paths.empty()) {
             m_data_path = m_json_paths.front().parent_path();
             json_paths = m_json_paths;
         } else {
-            for (const auto &path: fs::directory{m_data_path}) {
+            for (const auto &path: fs::directory{src}) {
                 if (path.is_file() && equals_case_insensitive(path.extension(), "json")) {
                     if (path.str().find(mode) != std::string::npos) {
                         json_paths.emplace_back(path);
@@ -749,7 +749,6 @@ void rta::Core::clean_dataset() {
 
 rta::Core::~Core() {
     PRINT("Core::~Core");
-    finalize();
 }
 
 void rta::Core::update_paths_dataset() {
@@ -809,16 +808,6 @@ void rta::Core::test_raycasting() {
     }
     out.close();
     exit(1);
-}
-
-void rta::Core::finalize() {
-    auto root = m_recorder->m_output_path;
-    auto now = std::chrono::system_clock::now();
-    std::time_t end_time = std::chrono::system_clock::to_time_t(now);
-    auto str = std::string(std::ctime(&end_time));
-    str.erase(std::remove(str.begin(), str.end(), '\n'), str.cend());
-    auto new_root = root.parent_path() / ("debug_" + str);
-    rename(root.str().c_str(), new_root.str().c_str());
 }
 
 void rta::Core::update_xforms() {

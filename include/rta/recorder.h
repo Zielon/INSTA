@@ -1,3 +1,20 @@
+/*
+ -*- coding: utf-8 -*-
+Max-Planck-Gesellschaft zur Förderung der Wissenschaften e.V. (MPG) is
+holder of all proprietary rights on this computer program.
+You can only use this computer program if you have closed
+a license agreement with MPG or you get the right to use the computer
+program from someone who is authorized to grant you that right.
+Any use of the computer program without a valid license is prohibited and
+liable to prosecution.
+
+Copyright©2023 Max-Planck-Gesellschaft zur Förderung
+der Wissenschaften e.V. (MPG). acting on behalf of its Max Planck Institute
+for Intelligent Systems. All rights reserved.
+
+Contact: insta@tue.mpg.de
+*/
+
 #ifndef REAL_TIME_AVATAR_RECORDER_H
 #define REAL_TIME_AVATAR_RECORDER_H
 
@@ -73,6 +90,7 @@ public:
     bool m_record_all = false;
     bool m_initial_step = true;
     bool m_single_step = false;
+    bool m_save_depth = false;
     uint32_t m_index_frame = 0;
     bool m_render_train_depth = false;
     int m_to_record = 0;

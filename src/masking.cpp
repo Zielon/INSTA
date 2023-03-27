@@ -1,3 +1,20 @@
+/*
+ -*- coding: utf-8 -*-
+Max-Planck-Gesellschaft zur Förderung der Wissenschaften e.V. (MPG) is
+holder of all proprietary rights on this computer program.
+You can only use this computer program if you have closed
+a license agreement with MPG or you get the right to use the computer
+program from someone who is authorized to grant you that right.
+Any use of the computer program without a valid license is prohibited and
+liable to prosecution.
+
+Copyright©2023 Max-Planck-Gesellschaft zur Förderung
+der Wissenschaften e.V. (MPG). acting on behalf of its Max Planck Institute
+for Intelligent Systems. All rights reserved.
+
+Contact: insta@tue.mpg.de
+*/
+
 #include "rta/masking.h"
 
 #include <iostream>
@@ -7,7 +24,6 @@
 
 #include "filesystem/directory.h"
 #include <tinyobjloader/tiny_obj_loader.h>
-#include <tinylogger/tinylogger.h>
 
 namespace fs = filesystem;
 using namespace Eigen;
@@ -40,8 +56,6 @@ rta::Masking::Masking(std::string current_canonical, filesystem::path _data_path
             faces.emplace_back(a, b, c);
         }
     }
-
-    tlog::info() << "Masking loaded with faces " << faces.size() << " and vertices " << vertices.size();
 
 //    load_flame_masks();
     mesh_to_mask();

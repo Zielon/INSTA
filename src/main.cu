@@ -1,3 +1,20 @@
+/*
+ -*- coding: utf-8 -*-
+Max-Planck-Gesellschaft zur Förderung der Wissenschaften e.V. (MPG) is
+holder of all proprietary rights on this computer program.
+You can only use this computer program if you have closed
+a license agreement with MPG or you get the right to use the computer
+program from someone who is authorized to grant you that right.
+Any use of the computer program without a valid license is prohibited and
+liable to prosecution.
+
+Copyright©2023 Max-Planck-Gesellschaft zur Förderung
+der Wissenschaften e.V. (MPG). acting on behalf of its Max Planck Institute
+for Intelligent Systems. All rights reserved.
+
+Contact: insta@tue.mpg.de
+*/
+
 #include <neural-graphics-primitives/testbed.h>
 
 #include <tiny-cuda-nn/common.h>
@@ -14,7 +31,7 @@ using namespace std;
 using namespace tcnn;
 namespace fs = ::filesystem;
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ArgumentParser parser{
             "neural graphics primitives\n"
             "version " NGP_VERSION,
@@ -95,14 +112,14 @@ int main(int argc, char** argv) {
     // errors using exceptions.
     try {
         parser.ParseCLI(argc, argv);
-    } catch (const Help&) {
+    } catch (const Help &) {
         cout << parser;
         return 0;
-    } catch (const ParseError& e) {
+    } catch (const ParseError &e) {
         cerr << e.what() << endl;
         cerr << parser;
         return -1;
-    } catch (const ValidationError& e) {
+    } catch (const ValidationError &e) {
         cerr << e.what() << endl;
         cerr << parser;
         return -2;
@@ -157,23 +174,31 @@ int main(int argc, char** argv) {
 
         std::string mode_str;
         switch (mode) {
-            case ETestbedMode::Nerf:   mode_str = "nerf";   break;
-            case ETestbedMode::Sdf:    mode_str = "sdf";    break;
-            case ETestbedMode::Image:  mode_str = "image";  break;
-            case ETestbedMode::Volume: mode_str = "volume"; break;
+            case ETestbedMode::Nerf:
+                mode_str = "nerf";
+                break;
+            case ETestbedMode::Sdf:
+                mode_str = "sdf";
+                break;
+            case ETestbedMode::Image:
+                mode_str = "image";
+                break;
+            case ETestbedMode::Volume:
+                mode_str = "volume";
+                break;
         }
 
         // Otherwise, load the network config and prepare for training
-        fs::path network_config_path = fs::path{"configs"}/mode_str;
+        fs::path network_config_path = fs::path{"configs"} / mode_str;
         if (network_config_flag) {
             auto network_config_str = get(network_config_flag);
-            if ((network_config_path/network_config_str).exists()) {
-                network_config_path = network_config_path/network_config_str;
+            if ((network_config_path / network_config_str).exists()) {
+                network_config_path = network_config_path / network_config_str;
             } else {
                 network_config_path = network_config_str;
             }
         } else {
-            network_config_path = network_config_path/"base.json";
+            network_config_path = network_config_path / "base.json";
         }
 
         if (!network_config_path.exists()) {
@@ -206,7 +231,6 @@ int main(int argc, char** argv) {
             core.load_snapshot(snapshot_path.str());
             core.m_train = false;
             core.m_offscreen_rendering = false;
-            core.m_render_deformed = true;
         }
 
         bool gui = !no_gui_flag;
@@ -224,7 +248,7 @@ int main(int argc, char** argv) {
                 tlog::info() << "iteration=" << core.m_training_step << " loss=" << core.m_loss_scalar.val();
             }
         }
-    } catch (const exception& e) {
+    } catch (const exception &e) {
         tlog::error() << "Uncaught exception: " << e.what();
         return 1;
     }

@@ -1,3 +1,20 @@
+/*
+ -*- coding: utf-8 -*-
+Max-Planck-Gesellschaft zur Förderung der Wissenschaften e.V. (MPG) is
+holder of all proprietary rights on this computer program.
+You can only use this computer program if you have closed
+a license agreement with MPG or you get the right to use the computer
+program from someone who is authorized to grant you that right.
+Any use of the computer program without a valid license is prohibited and
+liable to prosecution.
+
+Copyright©2023 Max-Planck-Gesellschaft zur Förderung
+der Wissenschaften e.V. (MPG). acting on behalf of its Max Planck Institute
+for Intelligent Systems. All rights reserved.
+
+Contact: insta@tue.mpg.de
+*/
+
 #ifndef INSTANT_NGP_AFFINE_CUH
 #define INSTANT_NGP_AFFINE_CUH
 
@@ -13,7 +30,8 @@ __host__ __device__ inline Matrix4f tri2projection(Vector3f point, const ngp::Tr
     Matrix4f M = Matrix4f::Identity();
     Matrix3f S = Matrix3f::Identity() * tri.scaling;
     tbn = tri.tbn();
-    tbn = tbn * S;
+    if (tri.mask_id == 1)
+        tbn = tbn * S;
     M.block<3, 3>(0, 0) = tbn;
     M.block<4, 1>(0, 3) = t;
 

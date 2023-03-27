@@ -1,9 +1,25 @@
+/*
+ -*- coding: utf-8 -*-
+Max-Planck-Gesellschaft zur Förderung der Wissenschaften e.V. (MPG) is
+holder of all proprietary rights on this computer program.
+You can only use this computer program if you have closed
+a license agreement with MPG or you get the right to use the computer
+program from someone who is authorized to grant you that right.
+Any use of the computer program without a valid license is prohibited and
+liable to prosecution.
+
+Copyright©2023 Max-Planck-Gesellschaft zur Förderung
+der Wissenschaften e.V. (MPG). acting on behalf of its Max Planck Institute
+for Intelligent Systems. All rights reserved.
+
+Contact: insta@tue.mpg.de
+*/
+
 #include <rta/recorder.h>
 
 #include <iostream>
 #include <string>
 #include <fstream>
-#include <dirent.h>
 #include <vector>
 
 #include <stb_image/stb_image_write.h>
@@ -19,36 +35,17 @@ static constexpr const char *VideoModeStr = "Floating\0Vertical\0Horizontal\0Ove
 using namespace Eigen;
 namespace fs = filesystem;
 
-std::vector<std::string> get_content(const std::string &path) {
-    DIR *dir;
-    struct dirent *diread;
-    std::vector<std::string> files;
-    if ((dir = opendir(path.c_str())) != nullptr) {
-        while ((diread = readdir(dir)) != nullptr) {
-            auto f = std::string(diread->d_name);
-            if (f.find('.') == std::string::npos)
-                files.push_back(f);
-        }
-        closedir(dir);
-    } else {
-        perror("opendir");
-    }
-    return files;
-}
-
 rta::Recorder::Recorder(ngp::Testbed *ngp) : m_ngp(ngp) {
     m_training_steps_wait = ngp->m_network_config["recorder_steps"];
     m_output_path = m_ngp->m_data_path;
-    m_data_path = m_ngp->m_data_path;
+    if (m_ngp->m_data_path.is_file())
+        m_output_path = m_ngp->m_data_path.parent_path();
 
     std::string config = m_ngp->m_network_config_path.basename();
     for (std::string str: {"experiments", config.c_str(), "debug"}) {
         m_output_path = m_output_path / str;
         fs::create_directory(m_output_path);
     }
-    auto files = get_content((m_data_path / "synthetic").str());
-    std::string version = "v" + std::to_string(files.size() + 1);
-    strcpy(m_synthetic_version, version.c_str());
 }
 
 void rta::Recorder::save_depth(float *depth_gpu, const char *path, const char *name, Vector2i res3d) {
@@ -128,6 +125,8 @@ void rta::Recorder::imgui() {
     if ((ImGui::Button("Start") || (m_ngp->m_training_step == m_training_steps_wait && !m_ngp->m_reenact)) && !m_is_recording) start();
     ImGui::SameLine();
     if (ImGui::Button("Stop")) stop();
+    ImGui::SameLine();
+    if (ImGui::Button("Reset Camera")) { m_ngp->reset_camera(); };
 
     if (m_is_recording) {
         ImGui::SameLine();
@@ -140,6 +139,7 @@ void rta::Recorder::imgui() {
     ImGui::Combo("Mode ", (int *) &m_video_mode, VideoModeStr);
     ImGui::SameLine();
     ImGui::Checkbox("All", &m_record_all);
+    ImGui::Checkbox("Save depth", &m_save_depth);
 
     if (!m_is_recording) {
         ImGui::PushItemWidth(100);
@@ -174,8 +174,6 @@ void rta::Recorder::start() {
     core->m_background_color.w() = 0.f;
     if (!core->m_reenact)
         core->reload_training_data(true, mode);
-    if (!core->m_render_ngp)
-        core->m_render_deformed = true;
     core->m_offscreen_rendering = false;
     core->m_dynamic_res = false;
     m_is_recording = !m_is_recording;
@@ -202,7 +200,6 @@ void rta::Recorder::stop() {
     m_single_step = false;
     m_render_train_depth = false;
     core->m_offscreen_rendering = true;
-    core->m_render_deformed = false;
     core->m_raycast_flame_mesh = false;
     core->m_nerf.training.view = 0;
     core->reset_camera();
@@ -371,7 +368,7 @@ void rta::Recorder::dump_frame_buffer(std::string suffix) {
         func = srgb_to_linear;
     save_rgba(rgba_pred_cpu.data(), dir.str().c_str(), id.c_str(), res, func);
 
-    if (m_dst_folder.find("synthetic") != std::string::npos || m_video_mode == VideoType::Overlay) {
+    if (m_save_depth) {
         save_depth(render_buffer.depth_buffer(), dir.str().c_str(), id.c_str(), render_buffer.in_resolution());
     }
 
@@ -387,19 +384,7 @@ void rta::Recorder::create_folder() {
     }
     auto version = std::string(m_synthetic_version);
     auto dir = root / m_dst_folder;
-    if (m_dst_folder.find("synthetic") != std::string::npos) {
-        dir = m_data_path / "synthetic";
-        if (!dir.exists()) { fs::create_directories(dir); }
-        dir = dir / version;
-        if (!dir.exists()) { fs::create_directories(dir); }
-        dir = dir / m_dst_folder;
-        if (!dir.exists()) { fs::create_directories(dir); }
-        if (!(dir / "raw").exists()) { fs::create_directory(dir / "raw"); }
-        if (!(dir / "depth").exists()) { fs::create_directory(dir / "depth"); }
-    } else {
-        fs::create_directory(dir);
-    }
-
+    fs::create_directory(dir);
     m_current_output = dir;
 }
 

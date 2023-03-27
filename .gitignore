@@ -31,10 +31,8 @@
 *.out
 *.app
 
+imgui.ini
+
 data
-dependencies
-instant-ngp/dependencies
-cinema
-scripts/*.txt
-scripts/sandbox
-scripts/diagrams/output
+scripts/insta
+scripts/dependencies
