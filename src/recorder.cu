@@ -95,9 +95,9 @@ void save_rgba(Array4f *rgba_cpu, const char *path, const char *name, Vector2i r
         }
     }
     // write slice
-    char filename[256];
-    snprintf(filename, sizeof(filename), "%s/%s.png", path, name);
-    stbi_write_png(filename, w, h, 4, pngpixels, w * 4);
+    filesystem::path output(path);
+    output = output / (std::string(name) + ".png");
+    stbi_write_png(output.str().c_str(), w, h, 4, pngpixels, w * 4);
     free(pngpixels);
 }
 

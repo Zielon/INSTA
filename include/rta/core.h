@@ -22,6 +22,7 @@ Contact: insta@tue.mpg.de
 #include <neural-graphics-primitives/nerf_network.h>
 #include <neural-graphics-primitives/nerf_network_mapper.h>
 #include <neural-graphics-primitives/common.h>
+#include "neural-graphics-primitives/thread_pool.h"
 #include "neural-graphics-primitives/nerf.h"
 
 #include "common.h"
@@ -74,6 +75,7 @@ RTA_NAMESPACE_BEGIN
         void update_paths_dataset();
         void test_raycasting();
 
+        ngp::ThreadPool m_pool;
         std::shared_ptr<Recorder> m_recorder;
         SphereTracer m_tracer;
         std::vector<std::shared_ptr<TinyMesh>> m_meshes;

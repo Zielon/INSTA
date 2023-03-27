@@ -34,7 +34,6 @@ Contact: insta@tue.mpg.de
 #include "rta/helpers.h"
 #include "rta/affine.cuh"
 #include "rta/tiny_mesh.h"
-#include "neural-graphics-primitives/thread_pool.h"
 
 using namespace Eigen;
 using namespace tcnn;
@@ -302,9 +301,7 @@ void rta::Core::load_meshes(const std::string &data_path, bool init_latent) {
     m_adjacency_cpu = m_canonical_shape->get_triangle_3_neighbours();
     m_adjacency_gpu.resize_and_copy_from_host(m_adjacency_cpu);
 
-    ngp::ThreadPool pool;
-
-    pool.parallelFor<size_t>(0, n_images, [&](size_t i) {
+    m_pool.parallelFor<size_t>(0, n_images, [&](size_t i) {
         auto path = m_nerf.training.dataset.mesh_paths[i];
         std::shared_ptr<TinyMesh> tiny_mesh = nullptr;
         if (cached_meshes.count(path)) {
