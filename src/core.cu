@@ -294,13 +294,12 @@ void rta::Core::load_meshes(const std::string &data_path, bool init_latent) {
     triangle_ptrs.resize(n_images);
     triangle_ptrs_topology.resize(n_images);
 
-    std::mutex mutex;
-
-    tlog::info() << "Loading meshes!";
-
     m_adjacency_cpu = m_canonical_shape->get_triangle_3_neighbours();
     m_adjacency_gpu.resize_and_copy_from_host(m_adjacency_cpu);
 
+    tlog::info() << "Loading meshes!";
+
+    std::mutex mutex;
     m_pool.parallelFor<size_t>(0, n_images, [&](size_t i) {
         auto path = m_nerf.training.dataset.mesh_paths[i];
         std::shared_ptr<TinyMesh> tiny_mesh = nullptr;
@@ -314,10 +313,10 @@ void rta::Core::load_meshes(const std::string &data_path, bool init_latent) {
             }
         }
 
-        m_meshes[i] = tiny_mesh;
         bvh_ptrs[i] = tiny_mesh->triangle_bvh->nodes_gpu();
         triangle_ptrs[i] = tiny_mesh->triangles_gpu.data();
         triangle_ptrs_topology[i] = tiny_mesh->triangles_gpu_orig_order.data();
+        m_meshes[i] = tiny_mesh;
         progress.update(++n_loaded);
     });
 

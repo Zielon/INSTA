@@ -75,7 +75,6 @@ public:
     void render_frontal();
     void dump_frame_buffer(std::string suffix = "");
     void dump_cameras_json();
-    void dump_ground_truth();
     void create_folder();
     void step();
     void progress();

@@ -24,6 +24,7 @@ Contact: insta@tue.mpg.de
 
 #include <neural-graphics-primitives/thread_pool.h>
 #include <neural-graphics-primitives/common_device.cuh>
+#include <stb_image/stb_image_write.h>
 
 #include <rta/debug.h>
 #include <rta/core.h>
@@ -33,6 +34,30 @@ static constexpr const char *VideoModeStr = "Floating\0Vertical\0Horizontal\0Ove
 
 using namespace Eigen;
 namespace fs = filesystem;
+
+static void save_rgba(const std::vector<Eigen::Array4f> &rgba_cpu, const char *path, const char *name, Eigen::Vector2i res3d, std::function<float(float)> transform) {
+    uint32_t w = res3d.x();
+    uint32_t h = res3d.y();
+
+    std::vector<uint8_t> pngpixels(size_t(w) * size_t(h) * 4, 0);
+    int dst = 0;
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            size_t i = x + res3d.x() + y * res3d.x();
+            if (i < rgba_cpu.size()) {
+                Eigen::Array4f rgba = rgba_cpu[i];
+                pngpixels[dst++] = (uint8_t) tcnn::clamp(transform(rgba.x()) * 255.f, 0.f, 255.f);
+                pngpixels[dst++] = (uint8_t) tcnn::clamp(transform(rgba.y()) * 255.f, 0.f, 255.f);
+                pngpixels[dst++] = (uint8_t) tcnn::clamp(transform(rgba.z()) * 255.f, 0.f, 255.f);
+                pngpixels[dst++] = (uint8_t) tcnn::clamp(transform(rgba.w()) * 255.f, 0.f, 255.f);
+            }
+        }
+    }
+    // write slice
+    filesystem::path output(path);
+    output = output / (std::string(name) + ".png");
+    stbi_write_png(output.str().c_str(), w, h, 4, pngpixels.data(), w * 4);
+}
 
 rta::Recorder::Recorder(ngp::Testbed *ngp) : m_ngp(ngp) {
     m_training_steps_wait = ngp->m_network_config["recorder_steps"];
@@ -265,37 +290,6 @@ void rta::Recorder::set_camera_to_training_view(size_t index) {
     m_ngp->set_camera_to_training_view(index);
 }
 
-void rta::Recorder::dump_ground_truth() {
-    auto dir = m_output_path / "ground_truth";
-    auto &render_buffer = m_ngp->m_render_surfaces.front();
-    float alpha = 1.f;
-    auto res = render_buffer.in_resolution();
-    std::string str = std::to_string(m_index_frame);
-    auto id = std::string(5 - std::min(5, int(str.length())), '0') + str;
-    auto const &metadata = m_ngp->m_nerf.training.dataset.metadata[m_ngp->m_nerf.training.view];
-    render_buffer.overlay_image(
-            alpha,
-            Array3f::Constant(m_ngp->m_exposure) + m_ngp->m_nerf.training.cam_exposure[m_ngp->m_nerf.training.view].variable(),
-            m_ngp->m_background_color,
-            ngp::EColorSpace::SRGB,
-            metadata.pixels,
-            metadata.image_data_type,
-            metadata.resolution,
-            m_ngp->m_fov_axis,
-            m_ngp->m_zoom,
-            Vector2f::Constant(0.5f),
-            m_ngp->m_stream.get()
-    );
-
-    auto gt = render_buffer.surface_provider().array();
-    std::vector<Array4f> rgba_gt_cpu;
-    rgba_gt_cpu.resize(res.x() * res.y());
-    CUDA_CHECK_THROW(cudaMemcpy2DFromArray(rgba_gt_cpu.data(), res.x() * sizeof(Array4f), gt, 0, 0, res.x() * sizeof(Array4f), res.y(), cudaMemcpyDeviceToHost));
-    save_rgba(rgba_gt_cpu.data(), dir.str().c_str(), id.c_str(), res, [](float c) { return c; });
-    m_ngp->reset_accumulation();
-    m_index_frame++;
-}
-
 void rta::Recorder::dump_frame_buffer(std::string suffix) {
     auto *core = (rta::Core *) m_ngp;
     auto &render_buffer = m_ngp->m_render_surfaces.front();
@@ -341,7 +335,7 @@ void rta::Recorder::dump_frame_buffer(std::string suffix) {
     std::function<float(float)> func = [](float c) { return c; };
     if (core->m_render_mode == ngp::ERenderMode::Normals)
         func = srgb_to_linear;
-    save_rgba(rgba_pred_cpu.data(), dir.str().c_str(), id.c_str(), res, func);
+    save_rgba(rgba_pred_cpu, dir.str().c_str(), id.c_str(), res, func);
 
     if (m_save_depth) {
         save_depth(render_buffer.depth_buffer(), dir.str().c_str(), id.c_str(), render_buffer.in_resolution());
