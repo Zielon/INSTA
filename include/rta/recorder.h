@@ -91,6 +91,7 @@ public:
     bool m_initial_step = true;
     bool m_single_step = false;
     bool m_save_depth = false;
+    bool m_resume_training = false;
     uint32_t m_index_frame = 0;
     bool m_render_train_depth = false;
     int m_to_record = 0;

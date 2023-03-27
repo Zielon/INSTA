@@ -116,6 +116,7 @@ void rta::Recorder::imgui() {
     ImGui::SameLine();
     ImGui::Checkbox("All", &m_record_all);
     ImGui::Checkbox("Save depth", &m_save_depth);
+    ImGui::Checkbox("Resume training", &m_resume_training);
 
     if (!m_is_recording) {
         ImGui::PushItemWidth(100);
@@ -170,34 +171,32 @@ void rta::Recorder::start() {
 void rta::Recorder::stop() {
     auto *core = (rta::Core *) m_ngp;
     core->m_dynamic_res = true;
-    core->m_train = true;
     m_is_recording = false;
     m_initial_step = true;
     m_single_step = false;
     m_render_train_depth = false;
-    core->m_offscreen_rendering = true;
+    core->m_offscreen_rendering = false;
     core->m_raycast_flame_mesh = false;
     core->m_nerf.training.view = 0;
     core->reset_camera();
-    core->set_train(true);
     core->reset_accumulation();
 
     core->m_render_mode = ngp::ERenderMode::Shade;
     core->m_background_color.w() = 1.f;
 
-    auto version = std::string(m_synthetic_version);
-
     std::string cmd = "cp " + m_ngp->m_network_config_path.str() + " " + (m_output_path / "config.json").str();
     system(cmd.c_str());
     dump_cameras_json();
 
-    core->m_dataset_paths.is_training = true;
-    core->m_dataset_paths.shuffle = true;
-    core->m_dataset_paths.load_all_training = false;
-    core->m_dataset_paths.is_rendering_depth = false;
-    core->m_dataset_paths.load_to_gpu = true;
-
-    core->reload_training_data(true);
+    if (m_resume_training) {
+        core->set_train(true);
+        core->m_dataset_paths.is_training = true;
+        core->m_dataset_paths.shuffle = true;
+        core->m_dataset_paths.load_all_training = false;
+        core->m_dataset_paths.is_rendering_depth = false;
+        core->m_dataset_paths.load_to_gpu = true;
+        core->reload_training_data(true);
+    }
 
     m_index_frame = 0;
     m_average_time = 0;
