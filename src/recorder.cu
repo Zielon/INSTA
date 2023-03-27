@@ -93,10 +93,12 @@ void rta::Recorder::save_depth(float *depth_gpu, const char *path, const char *n
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
             size_t i = x + res3d.x() + y * res3d.x();
-            float d = depth_cpu[i];
-            if (d < 0.f || d > 5.f) d = 0;
-            uint32_t depth = uint32_t(d * 1000.0f);
-            wf.write((char *) &depth, sizeof(uint32_t));
+            if (i < depth_cpu.size()) {
+                float d = depth_cpu[i];
+                if (d < 0.f || d > 5.f) d = 0;
+                uint32_t depth = uint32_t(d * 1000.0f);
+                wf.write((char *) &depth, sizeof(uint32_t));
+            }
         }
     }
     wf.close();
