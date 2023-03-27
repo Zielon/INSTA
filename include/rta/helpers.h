@@ -26,7 +26,30 @@ Contact: insta@tue.mpg.de
 #include <iostream>
 #include <fstream>
 
-#include <sys/types.h>
+#include <stb_image/stb_image_write.h>
+
+static void save_rgba(Eigen::Array4f *rgba_cpu, const char *path, const char *name, Eigen::Vector2i res3d, std::function<float(float)> transform) {
+    uint32_t w = res3d.x();
+    uint32_t h = res3d.y();
+
+    uint8_t *pngpixels = (uint8_t *) malloc(size_t(w) * size_t(h) * 4);
+    uint8_t *dst = pngpixels;
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            size_t i = x + res3d.x() + y * res3d.x();
+            float alpha = rgba_cpu[i].w();
+            *dst++ = (uint8_t) tcnn::clamp(transform(rgba_cpu[i].x()) * 255.f, 0.f, 255.f);
+            *dst++ = (uint8_t) tcnn::clamp(transform(rgba_cpu[i].y()) * 255.f, 0.f, 255.f);
+            *dst++ = (uint8_t) tcnn::clamp(transform(rgba_cpu[i].z()) * 255.f, 0.f, 255.f);
+            *dst++ = (uint8_t) tcnn::clamp(transform(alpha) * 255.f, 0.f, 255.f);
+        }
+    }
+    // write slice
+    filesystem::path output(path);
+    output = output / (std::string(name) + ".png");
+    stbi_write_png(output.str().c_str(), w, h, 4, pngpixels, w * 4);
+    free(pngpixels);
+}
 
 static std::vector<float> read_flame_params(std::string path, uint32_t max_params = 75) {
     std::ifstream in(path.c_str());

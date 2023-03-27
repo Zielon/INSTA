@@ -22,13 +22,12 @@ Contact: insta@tue.mpg.de
 #include <fstream>
 #include <vector>
 
-#include <stb_image/stb_image_write.h>
 #include <neural-graphics-primitives/thread_pool.h>
+#include <neural-graphics-primitives/common_device.cuh>
 
 #include <rta/debug.h>
 #include <rta/core.h>
 #include <rta/helpers.h>
-#include "neural-graphics-primitives/common_device.cuh"
 
 static constexpr const char *VideoModeStr = "Floating\0Vertical\0Horizontal\0Overlay\0Normals\0Frontal\0Sweep\0";
 
@@ -76,29 +75,6 @@ void rta::Recorder::save_depth(float *depth_gpu, const char *path, const char *n
         }
     }
     wf.close();
-}
-
-void save_rgba(Array4f *rgba_cpu, const char *path, const char *name, Vector2i res3d, std::function<float(float)> transform) {
-    uint32_t w = res3d.x();
-    uint32_t h = res3d.y();
-
-    uint8_t *pngpixels = (uint8_t *) malloc(size_t(w) * size_t(h) * 4);
-    uint8_t *dst = pngpixels;
-    for (int y = 0; y < h; ++y) {
-        for (int x = 0; x < w; ++x) {
-            size_t i = x + res3d.x() + y * res3d.x();
-            float alpha = rgba_cpu[i].w();
-            *dst++ = (uint8_t) tcnn::clamp(transform(rgba_cpu[i].x()) * 255.f, 0.f, 255.f);
-            *dst++ = (uint8_t) tcnn::clamp(transform(rgba_cpu[i].y()) * 255.f, 0.f, 255.f);
-            *dst++ = (uint8_t) tcnn::clamp(transform(rgba_cpu[i].z()) * 255.f, 0.f, 255.f);
-            *dst++ = (uint8_t) tcnn::clamp(transform(alpha) * 255.f, 0.f, 255.f);
-        }
-    }
-    // write slice
-    filesystem::path output(path);
-    output = output / (std::string(name) + ".png");
-    stbi_write_png(output.str().c_str(), w, h, 4, pngpixels, w * 4);
-    free(pngpixels);
 }
 
 float linear_to_srgb(float linear) {
