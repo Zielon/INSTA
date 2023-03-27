@@ -33,6 +33,8 @@
 
 imgui.ini
 
+build
+cmake-build-*
 data
 scripts/insta
 scripts/dependencies
