@@ -50,10 +50,10 @@ Usage example
 
 ```shell
 # Training
-./build/rta --config insta.json --scene data/obama --height 1024 --width 1024
+./build/rta --config insta.json --scene data/obama --height 512 --width 512
 
 # Loading from a checkpoint
-./build/rta --config insta.json --scene data/obama/transforms_test.json --height 1024 --width 1024 --snapshot data/obama/snapshot.msgpack
+./build/rta --config insta.json --scene data/obama/transforms_test.json --snapshot data/obama/snapshot.msgpack
 ```
 
 ### Dataset and Training

@@ -239,7 +239,7 @@ int main(int argc, char **argv) {
 #endif
 
         if (gui) {
-            core.init_window(width_flag ? get(width_flag) : 1920, height_flag ? get(height_flag) : 1080);
+            core.init_window(width_flag ? get(width_flag) : 1024, height_flag ? get(height_flag) : 1024);
         }
 
         // Render/training loop
