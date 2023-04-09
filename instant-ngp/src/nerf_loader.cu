@@ -351,7 +351,7 @@ bool read_focal_length(const nlohmann::json &json, Vector2f &focal_length, const
 	return true;
 }
 
-NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sharpen_amount, TrainPaths train_paths) {
+NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sharpen_amount, DatasetSettings dataset_settings) {
 	if (paths_orig.empty()) {
 		throw std::runtime_error{"Cannot load NeRF data from an empty set of paths."};
 	}
@@ -399,7 +399,8 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sha
 
     bool synthetic = false;
     bool retraining = false;
-    bool ngp_nerface = false;
+
+    USE_CACHE = dataset_settings.use_dataset_cache;
 
 	result.n_images = 0;
 	for (size_t i = 0; i < jsons.size(); ++i) {
@@ -437,8 +438,8 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sha
         }
 
         if (json.contains("reenact")) {
-            train_paths.is_retargeting = (bool) json["reenact"];
-            train_paths.is_training = false;
+            dataset_settings.is_retargeting = (bool) json["reenact"];
+            dataset_settings.is_training = false;
             result.reenact = true;
         }
 
@@ -448,14 +449,14 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sha
 
         tlog::info() << " Config frame number: " << frames_num;
 
-        int training_images = std::min(frames_num, train_paths.images_to_load);
+        int training_images = std::min(frames_num, dataset_settings.images_to_load);
         std::vector<int> train_ids(frames_num);
         std::iota(train_ids.begin(), train_ids.end(), skip);
 
-        if (!train_paths.load_all_training && train_paths.shuffle)
+        if (!dataset_settings.load_all_training && dataset_settings.shuffle)
             std::shuffle(train_ids.begin(), train_ids.end(), g);
 
-        if (!synthetic && retraining && train_paths.is_training)
+        if (!synthetic && retraining && dataset_settings.is_training)
             training_images = std::min(uint32_t(1000), frames_num);
 
         if (synthetic) {
@@ -469,15 +470,15 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sha
 
         auto index = train_ids;
 
-        if (!train_paths.load_all_training) {
+        if (!dataset_settings.load_all_training) {
             index = std::vector<int>(train_ids.begin(), train_ids.begin() + training_images);
         }
 
         result.current_samples[jp] = index;
         result.n_training_images += index.size();
 
-        if (train_paths.is_rendering_depth) {
-            index = get_index_from_file(train_paths.synthetic_path);
+        if (dataset_settings.is_rendering_depth) {
+            index = get_index_from_file(dataset_settings.synthetic_path);
             result.current_samples[jp] = index;
             result.n_training_images = result.current_samples[jp].size();
         }
@@ -497,7 +498,7 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sha
             result.exp_paths.push_back((basepath / fs::path(std::string(frames[frame_id]["exp_path"]))).str());
         }
 
-        if (!train_paths.is_retargeting)
+        if (!dataset_settings.is_retargeting)
             for (size_t i = 0; i < frames.size(); ++i) {
                 result.paths.emplace_back(frames[i]["file_path"]);
             }
@@ -543,7 +544,7 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sha
             synthetic = false;
         }
 
-        if (!train_paths.is_training && synthetic) continue; // DO NOT LOAD SYNTHETIC FOR TESTING
+        if (!dataset_settings.is_training && synthetic) continue; // DO NOT LOAD SYNTHETIC FOR TESTING
 
 		auto lastdot=jp.find_last_of('.'); if (lastdot==std::string::npos) lastdot=jp.length();
 		auto lastunderscore=jp.find_last_of('_'); if (lastunderscore==std::string::npos) lastunderscore=lastdot; else lastunderscore++;
@@ -669,7 +670,7 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sha
 			}
 		}
 
-		if (json.contains("frames") && json["frames"].is_array()) pool.parallelForAsync<size_t>(0, result.current_samples[jp].size(), [&, basepath, image_idx, info, jp, ngp_nerface](size_t i) {
+		if (json.contains("frames") && json["frames"].is_array()) pool.parallelForAsync<size_t>(0, result.current_samples[jp].size(), [&, basepath, image_idx, info, jp](size_t i) {
 			size_t i_img = i + image_idx;
 			auto& frame = frames[result.current_samples[jp][i]];
 			LoadedImageInfo& dst = images[i_img];
@@ -754,7 +755,7 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sha
                     throw std::runtime_error{"image not found: " + path.str()};
                 }
 
-                if (!ngp_nerface && frame.contains("seg_mask_path")) {
+                if (frame.contains("seg_mask_path")) {
                     fs::path maskpath = basepath / std::string{frame["seg_mask_path"]};
                     if (maskpath.exists()) {
                         comp = 0;
@@ -769,7 +770,7 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sha
                     }
                 }
 
-                if (!ngp_nerface && enable_depth_loading && info.depth_scale > 0.f && frame.contains("depth_path")) {
+                if (enable_depth_loading && info.depth_scale > 0.f && frame.contains("depth_path")) {
                     fs::path depthpath = basepath / std::string{frame["depth_path"]};
                     if (depthpath.exists()) {
                         int wa = dst.res.x(), ha = dst.res.y();
@@ -881,7 +882,7 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sha
 	tlog::success() << "Loaded " << images.size() << " images after " << tlog::durationToString(progress.duration());
 	tlog::info() << "  cam_aabb=" << cam_aabb;
 
-    if (train_paths.is_retargeting) {
+    if (dataset_settings.is_retargeting) {
         return result;
     }
 
@@ -896,7 +897,7 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sha
 	result.sharpness_data.enlarge( result.sharpness_resolution.x() * result.sharpness_resolution.y() *  result.n_images );
 
 	// copy / convert images to the GPU
-    if (train_paths.load_to_gpu) {
+    if (dataset_settings.load_to_gpu) {
         for (uint32_t i = 0; i < result.n_images; ++i) {
             const LoadedImageInfo &m = images[i];
             result.set_training_image(i, m.res, m.pixels, m.seg_mask, m.depth_pixels, m.depth_scale * result.scale, m.image_data_on_gpu, m.image_type, EDepthDataType::UShort, sharpen_amount, m.white_transparent, m.black_transparent, m.mask_color, m.rays);

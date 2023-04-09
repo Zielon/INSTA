@@ -21,7 +21,7 @@
 </div>
 <br>
 
-This repository is based on [instant-ngp](https://github.com/NVlabs/instant-ngp), some of the features of the original code are not available in this work. Therefore, one should restrain the program options to the main menu only.
+This repository is based on [instant-ngp](https://github.com/NVlabs/instant-ngp), some of the features of the original code are not available in this work. Therefore, one should restrain the program options to the main menu only to avoid crash.
 
 <div align="center"> 
 &#x26A0 We also prepared a Pytorch demo version of the project <a href="https://github.com/Zielon/INSTA-pytorch" target="_blank">INSTA Pytorch&nbsp</a> &#x26A0
@@ -41,9 +41,16 @@ cmake --build build --config RelWithDebInfo -j
 
 ### Usage and Requirements
 
-After building the project you can either start training an avatar from scratch or load a snapshot. For training, we recommend a graphics card higher or equal to `RTX3090 24GB`, (we have not tested any other GPU) and `64 GB` of RAM memory. Rendering from a snapshot does not require a high-end GPU
-and can be performed even on a laptop. We have tested it on `RTX 3080 8GB` laptop version.
-
+After building the project you can either start training an avatar from scratch or load a snapshot. For training, we recommend a graphics card higher or equal to `RTX3090 24GB` and `32 GB` of RAM memory. Training on a different hardware requires adjusting options in the config:
+```shell
+  "max_cached_bvh": 4000,            # How many BVH data structure are cached
+  "max_images_gpu": 1700,            # How many frames is loaded to GPU. Adjust for a given GPU memory size.
+  "use_dataset_cache": true,         # Loads images to RAM memory
+  "max_steps": 33000,                # Max training steps after which test sequence will be recorded
+  "render_novel_trajectory": false,  # Dumps additional camera trajectories after max steps
+  "render_from_snapshot": false      # For --no-gui option to directly render sequences
+```
+Rendering from a snapshot does not require a high-end GPU and can be performed even on a laptop. We have tested it on `RTX 3080 8GB` laptop version. For `--no-gui` option you can train and load snapshot for rendering by using the config in the same way as the one with `GUI`.
 The viewer options are the same as in the case of [instant-ngp](https://github.com/NVlabs/instant-ngp#keyboard-shortcuts-and-recommended-controls), with some additional key `F` to raycast the FLAME mesh.
 
 Usage example
@@ -60,7 +67,7 @@ Usage example
 
 We are releasing part of our dataset together with publicly available preprocessed avatars from [NHA](https://github.com/philgras/neural-head-avatars), [NeRFace](https://github.com/gafniguy/4D-Facial-Avatars) and [IMAvatar](https://github.com/zhengyuf/IMavatar).
 The output of the training (**Record Video** in menu), including rendered frames, checkpoint, etc will be saved in the `./data/{actor}/experiments/{config}/debug`.
-After the specified number of steps, the program will automatically either render all videos with the `All` option or only the currently selected one in `Mode`.
+After the specified number of max steps, the program will automatically either render all frames using the `All` option in GUI and `render_novel_trajectory` in config or only the currently selected one in `Mode`, by default `Overlay`.
 
 [Available avatars](https://keeper.mpdl.mpg.de/d/5ea4d2c300e9444a8b0b/). Click the selected avatar to download the training dataset and the checkpoint. The avatars have to be placed in the `data` folder.
 <div align="center" dis>
@@ -93,13 +100,12 @@ Next, you can use [Metrical Photometric Tracker](https://github.com/Zielon/metri
 **For training we recommend at least 1000 frames.**
 
 ```shell
-# 1) Run the tracker for a selected actor
+# 1) Run the Metrical Photometric Tracker for a selected actor
 python tracker.py --cfg ./configs/actors/duda.yml
 
 # 2) Generate a dataset using the script. Importantly, use the absolute path to tracker input and desired output.
 ./generate.sh /metrical-tracker/output/duda INSTA/data/duda 100
-
-# ./generate.sh {input} {output} {# of test frames from the end}
+#                        {input}                {output}    {# of test frames from the end}
 ```
 
 ### Citation

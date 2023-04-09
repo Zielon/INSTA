@@ -161,6 +161,28 @@ void rta::Core::imgui() {
 
     reset_accumulation();
 
+    ImGui::PushItemWidth(120);
+    ImGui::InputInt("Current Mesh", &m_target_deform_frame, 2);
+
+    m_recorder->imgui();
+
+    if (!m_recorder->is_recording()) {
+        m_target_deform_frame = tcnn::clamp<int>(m_target_deform_frame, 0, m_meshes.size() - 1);
+        m_nerf.extra_dim_idx_for_inference = m_target_deform_frame;
+    }
+
+    if (m_ngp_menu) Testbed::imgui();
+
+    ImGui::Separator();
+    ImGui::Text("Control");
+    ImGui::Text("WSDA - camera\nF - raycast FLAME\nK - show cameras\nLeft mouse buttons");
+}
+
+void rta::Core::pre_rendering() {
+    m_recorder->step();
+}
+
+void rta::Core::post_rendering() {
     if (m_training_step > 500) {
         m_nerf.training.seg_mask_supervision_lambda = m_network_config["seg_weight"];
         m_nerf.training.penalize_density_alpha = m_network_config["penalize_density_alpha"];
@@ -170,26 +192,6 @@ void rta::Core::imgui() {
         m_nerf.training.beta = m_network_config["beta_loss"];
     }
 
-    ImGui::PushItemWidth(120);
-    ImGui::InputInt("Current Mesh", &m_target_deform_frame, 2);
-
-    m_recorder->imgui();
-
-    if (!m_recorder->is_recording())
-        m_target_deform_frame = tcnn::clamp<int>(m_target_deform_frame, 0, m_meshes.size() - 1);
-
-    m_nerf.extra_dim_idx_for_inference = m_target_deform_frame;
-
-    if (m_ngp_menu) Testbed::imgui();
-
-    m_recorder->step();
-
-    ImGui::Separator();
-    ImGui::Text("Control");
-    ImGui::Text("WSDA - camera\nF - raycast FLAME\nK - show cameras\nLeft mouse buttons");
-}
-
-void rta::Core::post_rendering() {
     if (m_recorder->is_recording())
         m_recorder->dump_frame_buffer();
 }
@@ -200,6 +202,8 @@ void rta::Core::load_training_data(const std::string &data_path) {
     if (m_network_config.contains("dump_progress")) m_dump_progress = m_network_config["dump_progress"];
     if (m_network_config.contains("optimize_latent_code")) m_optimize_latent_code = m_network_config["optimize_latent_code"];
     if (m_network_config.contains("max_cached_bvh")) n_max_cached_bvh = m_network_config["max_cached_bvh"];
+    if (m_network_config.contains("max_images_gpu")) m_dataset_settings.images_to_load = m_network_config["max_images_gpu"];
+    if (m_network_config.contains("use_dataset_cache")) m_dataset_settings.use_dataset_cache = m_network_config["use_dataset_cache"];
 
     m_nerf.training.depth_supervision_lambda = m_network_config["depth_weight"];
     N_GEO_PARAMS = m_network_config["geo_params"];
@@ -218,9 +222,14 @@ void rta::Core::load_training_data(const std::string &data_path) {
 
 void rta::Core::post_loading() {
     if (!m_recorder) m_recorder.reset(new Recorder(this));
-    m_reenact = m_nerf.training.dataset.reenact;
     if (m_network_config.contains("horizontal_angle")) m_recorder->m_horizontal_angle = m_network_config["horizontal_angle"];
     if (m_network_config.contains("horizontal_normals")) m_recorder->m_horizontal_normals = m_network_config["horizontal_normals"];
+    if (m_network_config.contains("render_novel_trajectory")) m_recorder->m_record_all = m_network_config["render_novel_trajectory"];
+    if (m_recorder->m_record_all)
+        m_recorder->m_video_mode = VideoType::Floating;
+    if (m_loaded_from_snapshot) {
+        if (m_network_config.contains("render_from_snapshot")) m_recorder->m_render_from_snapshot = m_network_config["render_from_snapshot"];
+    }
 }
 
 void rta::Core::load_meshes(const std::string &data_path, bool init_latent) {
@@ -267,7 +276,7 @@ void rta::Core::load_meshes(const std::string &data_path, bool init_latent) {
     exp_pca_gpu.resize_and_copy_from_host(exp_pca_cpu);
     m_nerf.training.dataset.n_extra_learnable_dims = n_extra_dims;
     m_nerf.training.optimize_extra_dims = m_optimize_latent_code;
-    m_dataset_paths.optimize_latent_code = m_optimize_latent_code;
+    m_dataset_settings.optimize_latent_code = m_optimize_latent_code;
 
     auto progress = tlog::progress(n_images);
     std::atomic<int> n_loaded{0};
@@ -691,7 +700,7 @@ void rta::Core::reload_training_data(bool force, std::string mode) {
         CUDA_CHECK_THROW(cudaDeviceSynchronize());
         clean_dataset();
 
-        m_nerf.training.dataset = ngp::load_nerf(json_paths, m_nerf.sharpen, m_dataset_paths);
+        m_nerf.training.dataset = ngp::load_nerf(json_paths, m_nerf.sharpen, m_dataset_settings);
 
         load_nerf_post();
         load_meshes(m_data_path.str(), m_nerf.training.optimize_extra_dims && force);

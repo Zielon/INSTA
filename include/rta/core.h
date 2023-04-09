@@ -57,6 +57,7 @@ RTA_NAMESPACE_BEGIN
         void update_xforms();
         void imgui() override;
         bool keyboard_event() override;
+        void pre_rendering() override;
         void post_rendering() override;
         virtual void load_meshes(const std::string &data_path, bool init_latent = false);
         virtual tcnn::GPUMatrix<float> render_deformed(const tcnn::GPUMatrix<float> &coords, cudaStream_t stream);
@@ -101,7 +102,6 @@ RTA_NAMESPACE_BEGIN
         tcnn::GPUMemory<ngp::Triangle *> m_triangles_ptrs_gpu_topology;
 
     public:
-        ngp::TrainPaths m_dataset_paths = ngp::default_train_paths;
         // Conditioning
         bool m_use_eyes = false;
         bool m_use_jaw = false;

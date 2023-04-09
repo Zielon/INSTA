@@ -80,6 +80,8 @@ public:
 	using distance_fun_t = std::function<void(uint32_t, const tcnn::GPUMemory<Eigen::Vector3f>&, tcnn::GPUMemory<float>&, cudaStream_t)>;
 	using normals_fun_t = std::function<void(uint32_t, const tcnn::GPUMemory<Eigen::Vector3f>&, tcnn::GPUMemory<Eigen::Vector3f>&, cudaStream_t)>;
 
+    ngp::DatasetSettings m_dataset_settings = ngp::default_train_settings;
+
 	class SphereTracer {
 	public:
 		SphereTracer() : m_hit_counter(1), m_alive_counter(1) {}
@@ -375,9 +377,11 @@ public:
 	double calculate_iou(uint32_t n_samples=128*1024*1024, float scale_existing_results_factor=0.0, bool blocking=true, bool force_use_octree = true);
 	void draw_visualizations(ImDrawList* list, const Eigen::Matrix<float, 3, 4>& camera_matrix);
 	void train_and_render(bool skip_rendering);
+	virtual void pre_rendering() {};
 	virtual void post_rendering() {};
 	filesystem::path training_data_path() const;
 	void init_window(int resw, int resh, bool hidden = false, bool second_window = false);
+    void init_render_surface(int resw, int resh);
 	void destroy_window();
 	void apply_camera_smoothing(float elapsed_ms);
 	int find_best_training_view(int default_view);
@@ -447,7 +451,6 @@ public:
 	bool m_include_optimizer_state_in_snapshot = false;
 	bool m_render_ground_truth = false;
 	bool m_train = false;
-    bool m_reenact = false;
 	bool m_training_data_available = false;
 	bool m_render = true;
 	int m_max_spp = 0;
@@ -827,6 +830,7 @@ public:
 	bool m_edit_render_aabb = false;
     bool m_raycast_flame_mesh = false;
     bool m_offscreen_rendering = false;
+    bool m_loaded_from_snapshot = false;
     bool m_render_deformed = true;
     int m_target_deform_frame = 500;
 

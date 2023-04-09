@@ -60,7 +60,7 @@ static void save_rgba(const std::vector<Eigen::Array4f> &rgba_cpu, const char *p
 }
 
 rta::Recorder::Recorder(ngp::Testbed *ngp) : m_ngp(ngp) {
-    m_training_steps_wait = ngp->m_network_config["recorder_steps"];
+    m_training_steps_wait = ngp->m_network_config["max_steps"];
     m_output_path = m_ngp->m_data_path;
     if (m_ngp->m_data_path.is_file())
         m_output_path = m_ngp->m_data_path.parent_path();
@@ -125,7 +125,7 @@ void rta::Recorder::imgui() {
     ImGui::Text("Record video");
 //    if (ImGui::Button("Snapshot")) snapshot();
     if (m_record_all && !m_is_recording && !m_single_step) m_video_mode = VideoType::Floating;
-    if ((ImGui::Button("Start") || (m_ngp->m_training_step == m_training_steps_wait && !m_ngp->m_reenact)) && !m_is_recording) start();
+    if (ImGui::Button("Start")) start();
     ImGui::SameLine();
     if (ImGui::Button("Stop")) stop();
     ImGui::SameLine();
@@ -134,8 +134,6 @@ void rta::Recorder::imgui() {
     if (m_is_recording) {
         ImGui::SameLine();
         auto str = "#" + std::to_string(m_index_frame + 1);
-        m_ngp->m_target_deform_frame = m_index_frame;
-        m_ngp->m_nerf.extra_dim_idx_for_inference = m_index_frame;
         ImGui::Text(str.c_str());
     }
 
@@ -171,22 +169,24 @@ void rta::Recorder::start() {
         m_ngp->save_snapshot(root.str(), false);
     core->m_train = false;
     m_index_frame = 0;
-    core->m_dataset_paths.is_training = false;
-    core->m_dataset_paths.is_retargeting = core->m_reenact;
-    core->m_dataset_paths.shuffle = false;
+    core->m_dataset_settings.is_training = false;
+    core->m_dataset_settings.shuffle = false;
     std::string mode = "test";
     core->m_background_color.w() = 0.f;
-    if (!core->m_reenact)
-        core->reload_training_data(true, mode);
+    core->reload_training_data(true, mode);
     core->m_offscreen_rendering = false;
     core->m_dynamic_res = false;
     m_is_recording = !m_is_recording;
     m_start = std::chrono::steady_clock::now();
     m_to_record = core->m_nerf.training.dataset.n_all_images;
-    if (core->m_dataset_paths.is_training)
+    if (core->m_dataset_settings.is_training)
         m_to_record = core->m_nerf.training.dataset.n_training_images;
     m_ngp->reset_accumulation();
     m_ngp->reset_camera();
+
+    auto &render_buffer = m_ngp->m_render_surfaces.front();
+    render_buffer.clear_frame(core->m_stream.get());
+
     generate_floating_cameras();
     generate_horizontal_cameras();
     generate_vertical_cameras();
@@ -199,7 +199,6 @@ void rta::Recorder::stop() {
     auto *core = (rta::Core *) m_ngp;
     core->m_dynamic_res = true;
     m_is_recording = false;
-    m_initial_step = true;
     m_single_step = false;
     m_render_train_depth = false;
     core->m_offscreen_rendering = false;
@@ -217,11 +216,11 @@ void rta::Recorder::stop() {
 
     if (m_resume_training) {
         core->set_train(true);
-        core->m_dataset_paths.is_training = true;
-        core->m_dataset_paths.shuffle = true;
-        core->m_dataset_paths.load_all_training = false;
-        core->m_dataset_paths.is_rendering_depth = false;
-        core->m_dataset_paths.load_to_gpu = true;
+        core->m_dataset_settings.is_training = true;
+        core->m_dataset_settings.shuffle = true;
+        core->m_dataset_settings.load_all_training = false;
+        core->m_dataset_settings.is_rendering_depth = false;
+        core->m_dataset_settings.load_to_gpu = true;
         core->reload_training_data(true);
     }
 
@@ -232,7 +231,6 @@ void rta::Recorder::stop() {
 void rta::Recorder::video() {
     if (!m_is_recording) return;
     size_t index = m_index_frame;
-    m_ngp->reset_accumulation();
     m_ngp->m_target_deform_frame = index;
     m_ngp->m_nerf.extra_dim_idx_for_inference = index;
     auto *core = (rta::Core *) m_ngp;
@@ -295,9 +293,15 @@ void rta::Recorder::set_camera_to_training_view(size_t index) {
 void rta::Recorder::dump_frame_buffer(std::string suffix) {
     auto *core = (rta::Core *) m_ngp;
     auto &render_buffer = m_ngp->m_render_surfaces.front();
+    Vector2i res = render_buffer.in_resolution();
+
+    if (!core->m_render_window) { // --no-gui option
+        render_buffer.resize(res);
+        core->render_frame(core->m_smoothed_camera, core->m_smoothed_camera, Eigen::Vector4f::Zero(), render_buffer);
+    }
+
     auto dir = m_output_path / m_dst_folder;
     ngp::BoundingBox aabb = (m_ngp->m_testbed_mode == ngp::ETestbedMode::Nerf) ? m_ngp->m_render_aabb : m_ngp->m_aabb;
-    Vector2i res = render_buffer.in_resolution();
     auto rgba = render_buffer.accumulate_buffer();
     auto size = res.x() * res.y();
     auto version = std::string(m_synthetic_version);
@@ -378,15 +382,13 @@ void rta::Recorder::set_floating_camera(size_t index) {
 }
 
 void rta::Recorder::step() {
+    if ((m_ngp->m_training_step == m_training_steps_wait || m_render_from_snapshot) && !m_is_recording) {
+        start();
+    }
+
     if (m_single_step) {
         stop();
     };
-
-    // Skip first rendering to render to the buffer in the program main loop
-    if (m_initial_step || !m_is_recording) {
-        m_initial_step = false;
-        return;
-    }
 
     if (m_index_frame >= m_to_record && m_is_recording) {
         stop();
@@ -395,8 +397,9 @@ void rta::Recorder::step() {
         }
     }
 
-    if (m_index_frame < m_to_record)
+    if (m_index_frame < m_to_record) {
         video();
+    }
 }
 
 float clip(float n, float lower, float upper) {
@@ -592,7 +595,7 @@ void rta::Recorder::generate_hemisphere_cameras() {
 
 
 void rta::Recorder::next() {
-    if ((m_video_mode == VideoType::Overlay) && m_record_all) {
+    if ((m_video_mode == VideoType::Normals) && m_record_all) {
         exit(0);
     }
     m_video_mode = static_cast<VideoType>(static_cast<int>(m_video_mode) + 1);

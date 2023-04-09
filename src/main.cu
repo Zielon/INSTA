@@ -229,17 +229,23 @@ int main(int argc, char **argv) {
             }
 
             core.load_snapshot(snapshot_path.str());
+
             core.m_train = false;
             core.m_offscreen_rendering = false;
+            core.m_loaded_from_snapshot = true;
         }
 
         bool gui = !no_gui_flag;
 #ifndef NGP_GUI
         gui = false;
 #endif
+        auto W = width_flag ? get(width_flag) : 1024;
+        auto H = height_flag ? get(height_flag) : 1024;
 
         if (gui) {
-            core.init_window(width_flag ? get(width_flag) : 1024, height_flag ? get(height_flag) : 1024);
+            core.init_window(W, H);
+        } else {
+            core.init_render_surface(W, H);
         }
 
         // Render/training loop

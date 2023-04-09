@@ -87,7 +87,7 @@ public:
 
     bool m_is_recording = false;
     bool m_record_all = false;
-    bool m_initial_step = true;
+    bool m_render_from_snapshot = false;
     bool m_single_step = false;
     bool m_save_depth = false;
     bool m_resume_training = false;

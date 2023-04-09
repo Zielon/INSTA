@@ -2716,7 +2716,7 @@ void Testbed::load_nerf() {
 			throw std::runtime_error{"NeRF data path must either be a json file or a directory containing json files."};
 		}
 
-		m_nerf.training.dataset = ngp::load_nerf(json_paths, m_nerf.sharpen);
+		m_nerf.training.dataset = ngp::load_nerf(json_paths, m_nerf.sharpen, m_dataset_settings);
 	}
 
 	load_nerf_post();

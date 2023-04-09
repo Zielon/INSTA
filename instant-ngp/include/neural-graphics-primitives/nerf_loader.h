@@ -206,7 +206,7 @@ inline std::string replace(const std::string src, const std::string from, const 
     return str;
 }
 
-struct TrainPaths {
+struct DatasetSettings {
     bool is_training = true;
     bool is_retargeting = false;
     bool is_rendering_depth = false;
@@ -214,12 +214,13 @@ struct TrainPaths {
     bool load_all_training = false;
     bool optimize_latent_code = false;
     bool shuffle = true;
+    bool use_dataset_cache = true;
     std::string synthetic_path = "";
     uint32_t images_to_load = 1700;
 };
 
-static TrainPaths default_train_paths = {};
-NerfDataset load_nerf(const std::vector<filesystem::path>& jsonpaths, float sharpen_amount = 0.f, TrainPaths train_paths = default_train_paths);
+static DatasetSettings default_train_settings = {};
+NerfDataset load_nerf(const std::vector<filesystem::path>& jsonpaths, float sharpen_amount = 0.f, DatasetSettings dataset_settings = default_train_settings);
 NerfDataset create_empty_nerf_dataset(size_t n_images, int aabb_scale = 1, bool is_hdr = false);
 
 NGP_NAMESPACE_END

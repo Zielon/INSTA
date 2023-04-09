@@ -1788,6 +1788,19 @@ void Testbed::create_second_window() {
 }
 #endif //NGP_GUI
 
+void Testbed::init_render_surface(int resw, int resh) {
+    m_window_res = {resw, resh};
+
+    auto render_textures = std::make_shared<CudaSurface2D>();
+
+    m_render_surfaces.clear();
+    m_render_surfaces.emplace_back(render_textures);
+    m_render_surfaces.front().resize(m_window_res);
+
+    auto pip = std::make_shared<CudaSurface2D>();
+    m_pip_render_surface = std::make_unique<CudaRenderBuffer>(pip);
+}
+
 void Testbed::init_window(int resw, int resh, bool hidden, bool second_window) {
 #ifndef NGP_GUI
 	throw std::runtime_error{"init_window failed: NGP was built without GUI support"};
@@ -1995,8 +2008,10 @@ bool Testbed::frame() {
 		}
 	} catch (SharedQueueEmptyException&) {}
 
+    pre_rendering();
 	train_and_render(skip_rendering);
     post_rendering();
+
 	if (m_testbed_mode == ETestbedMode::Sdf && m_sdf.calculate_iou_online) {
 		m_sdf.iou = calculate_iou(m_train ? 64*64*64 : 128*128*128, m_sdf.iou_decay, false, true);
 		m_sdf.iou_decay = 0.f;
