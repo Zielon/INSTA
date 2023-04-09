@@ -41,11 +41,11 @@ cmake --build build --config RelWithDebInfo -j
 
 ### Usage and Requirements
 
-After building the project you can either start training an avatar from scratch or load a snapshot. For training, we recommend a graphics card higher or equal to `RTX3090 24GB` and `32 GB` of RAM memory. Training on a different hardware requires adjusting options in the config:
+After building the project you can either start training an avatar from scratch or load a snapshot. For training, we recommend a graphics card higher or equal to `RTX3090 24GB` and `32 GB` of RAM memory. Training on a different hardware probably requires adjusting options in the config:
 ```shell
-  "max_cached_bvh": 4000,            # How many BVH data structure are cached
-  "max_images_gpu": 1700,            # How many frames is loaded to GPU. Adjust for a given GPU memory size.
-  "use_dataset_cache": true,         # Loads images to RAM memory
+  "max_cached_bvh": 4000,            # How many BVH data structures are cached
+  "max_images_gpu": 1700,            # How many frames are loaded to GPU. Adjust for a given GPU memory size.
+  "use_dataset_cache": true,         # Load images to RAM memory
   "max_steps": 33000,                # Max training steps after which test sequence will be recorded
   "render_novel_trajectory": false,  # Dumps additional camera trajectories after max steps
   "render_from_snapshot": false      # For --no-gui option to directly render sequences
@@ -67,7 +67,7 @@ Usage example
 
 We are releasing part of our dataset together with publicly available preprocessed avatars from [NHA](https://github.com/philgras/neural-head-avatars), [NeRFace](https://github.com/gafniguy/4D-Facial-Avatars) and [IMAvatar](https://github.com/zhengyuf/IMavatar).
 The output of the training (**Record Video** in menu), including rendered frames, checkpoint, etc will be saved in the `./data/{actor}/experiments/{config}/debug`.
-After the specified number of max steps, the program will automatically either render all frames using the `All` option in GUI and `render_novel_trajectory` in config or only the currently selected one in `Mode`, by default `Overlay`.
+After the specified number of max steps, the program will automatically either render frames using novel cameras (`All` option in GUI and `render_novel_trajectory` in config) or only the currently selected one in `Mode`, by default `Overlay\Test`.
 
 [Available avatars](https://keeper.mpdl.mpg.de/d/5ea4d2c300e9444a8b0b/). Click the selected avatar to download the training dataset and the checkpoint. The avatars have to be placed in the `data` folder.
 <div align="center" dis>
