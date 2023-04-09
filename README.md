@@ -21,7 +21,7 @@
 </div>
 <br>
 
-This repository is based on [instant-ngp](https://github.com/NVlabs/instant-ngp), some of the features of the original code are not available in this work. Therefore, one should restrain the program options to the main menu only to avoid crash.
+This repository is based on [instant-ngp](https://github.com/NVlabs/instant-ngp), some of the features of the original code are not available in this work.
 
 <div align="center"> 
 &#x26A0 We also prepared a Pytorch demo version of the project <a href="https://github.com/Zielon/INSTA-pytorch" target="_blank">INSTA Pytorch&nbsp</a> &#x26A0
