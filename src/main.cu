@@ -232,7 +232,6 @@ int main(int argc, char **argv) {
 
             core.m_train = false;
             core.m_offscreen_rendering = false;
-            core.m_loaded_from_snapshot = true;
         }
 
         bool gui = !no_gui_flag;

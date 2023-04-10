@@ -830,7 +830,6 @@ public:
 	bool m_edit_render_aabb = false;
     bool m_raycast_flame_mesh = false;
     bool m_offscreen_rendering = false;
-    bool m_loaded_from_snapshot = false;
     bool m_render_deformed = true;
     int m_target_deform_frame = 500;
 

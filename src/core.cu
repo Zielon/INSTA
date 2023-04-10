@@ -225,11 +225,9 @@ void rta::Core::post_loading() {
     if (m_network_config.contains("horizontal_angle")) m_recorder->m_horizontal_angle = m_network_config["horizontal_angle"];
     if (m_network_config.contains("horizontal_normals")) m_recorder->m_horizontal_normals = m_network_config["horizontal_normals"];
     if (m_network_config.contains("render_novel_trajectory")) m_recorder->m_record_all = m_network_config["render_novel_trajectory"];
+    if (m_network_config.contains("render_from_snapshot")) m_recorder->m_render_from_snapshot = m_network_config["render_from_snapshot"];
     if (m_recorder->m_record_all)
         m_recorder->m_video_mode = VideoType::Floating;
-    if (m_loaded_from_snapshot) {
-        if (m_network_config.contains("render_from_snapshot")) m_recorder->m_render_from_snapshot = m_network_config["render_from_snapshot"];
-    }
 }
 
 void rta::Core::load_meshes(const std::string &data_path, bool init_latent) {

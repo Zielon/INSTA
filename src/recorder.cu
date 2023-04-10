@@ -226,6 +226,9 @@ void rta::Recorder::stop() {
 
     m_index_frame = 0;
     m_average_time = 0;
+
+    if (m_render_from_snapshot && !m_record_all)
+        exit(0);
 }
 
 void rta::Recorder::video() {
@@ -391,9 +394,10 @@ void rta::Recorder::step() {
     };
 
     if (m_index_frame >= m_to_record && m_is_recording) {
-        stop();
         if (m_record_all) {
             next();
+        } else {
+            stop();
         }
     }
 
