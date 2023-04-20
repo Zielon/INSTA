@@ -321,6 +321,21 @@ void read_camera_distortion(const nlohmann::json &json, CameraDistortion &camera
 	}
 }
 
+bool read_principal_point(const nlohmann::json &json, Vector2f &principal_point) {
+    int count = 0;
+    if (json.contains("cx") && json.contains("w")) {
+        principal_point.x() = (float)json["cx"] / (float)json["w"];
+        count++;
+    }
+
+    if (json.contains("cy") && json.contains("h")) {
+        principal_point.y() = (float)json["cy"] / (float)json["h"];
+        count++;
+    }
+
+    return count == 2;
+}
+
 bool read_focal_length(const nlohmann::json &json, Vector2f &focal_length, const Vector2i &res) {
 	auto read_focal_length = [&](int resolution, const std::string& axis) {
 		if (json.contains(axis + "_fov")) {
@@ -858,9 +873,15 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& paths_orig, float sha
 				}
 			}
 
+            Vector2f pp = Vector2f::Constant(0.5f);
+            if (read_principal_point(frame, pp)){
+                result.metadata[i_img].principal_point = pp;
+            } else {
+                result.metadata[i_img].principal_point = principal_point;
+            }
+
 			// set these from the base settings
 			result.metadata[i_img].rolling_shutter = rolling_shutter;
-			result.metadata[i_img].principal_point = principal_point;
 			result.metadata[i_img].camera_distortion = camera_distortion;
 			// see if there is a per-frame override
 			read_camera_distortion(frame, result.metadata[i_img].camera_distortion, result.metadata[i_img].principal_point, result.metadata[i_img].rolling_shutter);

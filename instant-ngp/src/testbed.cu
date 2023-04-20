@@ -270,7 +270,7 @@ void Testbed::set_camera_to_training_view(int trainview) {
 	m_scale = std::max((old_look_at - view_pos()).dot(view_dir()), 0.1f);
 	m_nerf.render_with_camera_distortion = true;
 	m_nerf.render_distortion = m_nerf.training.dataset.metadata[trainview].camera_distortion;
-	m_screen_center = Vector2f::Constant(1.0f) - m_nerf.training.dataset.metadata[0].principal_point;
+	m_screen_center = Vector2f::Constant(1.0f) - m_nerf.training.dataset.metadata[trainview].principal_point;
 }
 
 void Testbed::reset_camera() {

@@ -2675,7 +2675,7 @@ void Testbed::load_nerf_post() { // moved the second half of load_nerf here
 	m_aabb = BoundingBox{Vector3f::Constant(0.5f), Vector3f::Constant(0.5f)};
 	m_aabb.inflate(0.5f * std::min(1 << (NERF_CASCADES()-1), m_nerf.training.dataset.aabb_scale));
 	m_raw_aabb = m_aabb;
-	m_render_aabb = m_aabb;
+//	m_render_aabb = m_aabb;
 	m_render_aabb_to_local = m_nerf.training.dataset.render_aabb_to_local;
 	if (!m_nerf.training.dataset.render_aabb.is_empty()) {
 		m_render_aabb = m_nerf.training.dataset.render_aabb.intersection(m_aabb);

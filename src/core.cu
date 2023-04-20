@@ -285,10 +285,8 @@ void rta::Core::load_meshes(const std::string &data_path, bool init_latent) {
 
     m_masking = std::make_shared<Masking>(current_canonical.str(), filesystem::path("."));
     m_canonical_shape = std::make_shared<TinyMesh>(current_canonical.str(), m_stream.get(), m_masking, nullptr);
-
-    auto face = std::make_shared<TinyMesh>("average.obj", m_stream.get(), m_masking, m_canonical_shape);
-    m_render_aabb = face->m_aabb;
-    m_render_bsphere = face->m_bsphere;
+    m_render_aabb = m_canonical_shape->m_aabb;
+    m_render_bsphere = m_canonical_shape->m_bsphere;
 
     if (m_nerf.training.optimize_extra_dims) return;
 
