@@ -1485,12 +1485,12 @@ __global__ void compute_loss_kernel_train_nerf(
 //        if (mask_id == 140) { depth_supervision_lambda = 0.25f; }
         if (mask_id <= 90 || mask_id > 250) { depth_supervision_lambda = 0.f; }
         if (texsamp.w() < 0.001) { depth_supervision_lambda = 0.f; }
-
-        float target_depth = rays_in_unnormalized[i].d.norm() * ((depth_supervision_lambda > 0.0f && metadata[img].depth) ? read_depth(xy, resolution, metadata[img].depth) : -1.0f);
-        LossAndGradient lg_depth = loss_and_gradient(Array3f::Constant(target_depth), Array3f::Constant(depth_ray), depth_loss_type);
-        depth_loss_gradient = target_depth > 0.0f ? lg_depth.gradient.x() : 0;
-        depth_loss_gradient *= depth_supervision_lambda;
     }
+
+    float target_depth = rays_in_unnormalized[i].d.norm() * ((depth_supervision_lambda > 0.0f && metadata[img].depth) ? read_depth(xy, resolution, metadata[img].depth) : -1.0f);
+    LossAndGradient lg_depth = loss_and_gradient(Array3f::Constant(target_depth), Array3f::Constant(depth_ray), depth_loss_type);
+    depth_loss_gradient = target_depth > 0.0f ? lg_depth.gradient.x() : 0;
+    depth_loss_gradient *= depth_supervision_lambda;
 
     LossAndGradient lg = loss_and_gradient(rgbtarget, rgb_ray, loss_type);
 	lg.loss /= img_pdf * xy_pdf;
