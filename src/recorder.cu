@@ -379,7 +379,9 @@ void rta::Recorder::set_floating_camera(size_t index) {
 
 //    if (m_dst_folder == "synthetic_train_depth") rt = m_average_camera;
 
-    m_ngp->first_training_view();
+//    m_ngp->first_training_view();
+    m_ngp->reset_camera();
+
     m_ngp->m_camera = rt;
     m_ngp->m_smoothed_camera = rt;
 }
@@ -620,7 +622,7 @@ void rta::Recorder::set_neutral_camera() {
     auto z = m_neutral_camera.col(3).z();
     m_ngp->reset_camera();
     m_neutral_camera = m_ngp->m_camera;
-    m_neutral_camera.col(3).z() = t.z();
+//    m_neutral_camera.col(3).z() = t.z();
 //    std::cout << "Average  " << t.z() - 0.5f << std::endl;
 //    m_average_camera = m_ngp->m_nerf.training.transforms[size - 5].start;
 }
