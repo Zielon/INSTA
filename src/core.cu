@@ -886,3 +886,11 @@ GPUMatrix<network_precision_t, tcnn::RM> rta::Core::point_density_flame_closest_
 
     return GPUMatrix<network_precision_t, RM>(density.data(), density.m(), density.n());
 }
+
+std::string rta::Core::get_recorder_info() {
+    return m_recorder->info();
+}
+
+bool rta::Core::is_recording() {
+    return m_recorder->is_recording();
+}

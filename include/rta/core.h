@@ -55,6 +55,8 @@ RTA_NAMESPACE_BEGIN
         void post_loading() override;
         void reload_training_data(bool force = false, std::string mode = "train") override;
         void update_xforms();
+        std::string get_recorder_info();
+        bool is_recording();
         void imgui() override;
         bool keyboard_event() override;
         void pre_rendering() override;

@@ -229,6 +229,9 @@ void rta::Recorder::stop() {
 
     if (m_render_from_snapshot && !m_record_all)
         exit(0);
+
+    if (!core->is_using_gui && !m_record_all)
+        exit(0);
 }
 
 void rta::Recorder::video() {
@@ -692,4 +695,8 @@ void rta::Recorder::dump_cameras_json() {
     file << std::setw(4) << main << std::endl;
     file.close();
     m_json_cameras = JsonCameras();
+}
+
+std::string rta::Recorder::info() const {
+    return "Recording frame [" + std::to_string(m_index_frame) + "/" + std::to_string(m_to_record) + "] in the mode " + m_dst_folder;
 }

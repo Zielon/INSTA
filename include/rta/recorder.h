@@ -78,6 +78,7 @@ public:
     void create_folder();
     void step();
     void progress();
+    std::string info() const;
 
     void set_camera_to_novel_view(size_t index);
     void set_camera_to_training_view(size_t index);

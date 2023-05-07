@@ -901,6 +901,7 @@ public:
     tcnn::GPUMemory<ngp::Triangle*> m_triangles_ptrs_gpu;
     ngp::TriangleBvhNode* m_canon_bvh_gpu;
     ngp::Triangle* m_canon_tris_gpu;
+    bool is_using_gui = true;
 };
 
 NGP_NAMESPACE_END

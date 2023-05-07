@@ -247,10 +247,15 @@ int main(int argc, char **argv) {
             core.init_render_surface(W, H);
         }
 
+        core.is_using_gui = gui;
+
         // Render/training loop
         while (core.frame()) {
             if (!gui) {
-                tlog::info() << "iteration=" << core.m_training_step << " loss=" << core.m_loss_scalar.val();
+                if (core.is_recording())
+                    tlog::info() << core.get_recorder_info();
+                else
+                    tlog::info() << "iteration=" << core.m_training_step << " loss=" << core.m_loss_scalar.val();
             }
         }
     } catch (const exception &e) {

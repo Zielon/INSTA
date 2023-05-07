@@ -4,6 +4,6 @@
 	"max_cached_bvh": 4000,
 	"max_images_gpu": 1700,
 	"use_dataset_cache": true,
-	"render_novel_trajectory": false,
+	"render_novel_trajectory": true,
 	"render_from_snapshot": false
 }
