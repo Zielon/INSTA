@@ -43,7 +43,7 @@ static void save_rgba(const std::vector<Eigen::Array4f> &rgba_cpu, const char *p
     int dst = 0;
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            size_t i = x + res3d.x() + y * res3d.x();
+            size_t i = x + y * res3d.x();
             if (i < rgba_cpu.size()) {
                 Eigen::Array4f rgba = rgba_cpu[i];
                 pngpixels[dst++] = (uint8_t) tcnn::clamp(transform(rgba.x()) * 255.f, 0.f, 255.f);
@@ -394,10 +394,6 @@ void rta::Recorder::step() {
         start();
     }
 
-    if (m_single_step) {
-        stop();
-    };
-
     if (m_index_frame >= m_to_record && m_is_recording) {
         if (m_record_all) {
             next();
@@ -607,6 +603,7 @@ void rta::Recorder::next() {
     if ((m_video_mode == VideoType::Normals) && m_record_all) {
         exit(0);
     }
+    m_is_recording = false;
     m_video_mode = static_cast<VideoType>(static_cast<int>(m_video_mode) + 1);
     start();
 }
