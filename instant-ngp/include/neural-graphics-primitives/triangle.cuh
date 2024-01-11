@@ -41,13 +41,17 @@ struct Triangle {
 	}
 
     NGP_HOST_DEVICE Eigen::Matrix3f tbn() const {
-        Eigen::Vector3f n = (b - a).cross(c - a).normalized();
-        Eigen::Vector3f d = b - a; // tangent
+        Eigen::Vector3f t = b - a;
+        Eigen::Vector3f b = c - a;
 
         Eigen::Matrix3f m = Eigen::Matrix3f::Identity();
-        m.col(0) = d.cross(n).normalized();
-        m.col(1) = d.cross(m.col(0)).normalized();
-        m.col(2) = d.normalized();
+        Eigen::Vector3f normal = t.cross(b).normalized();
+        Eigen::Vector3f bitangent = t.cross(normal).normalized();
+        Eigen::Vector3f tangent = bitangent.cross(normal).normalized();
+
+        m.col(0) = tangent;
+        m.col(1) = bitangent;
+        m.col(2) = normal;
 
         return m;
     }
