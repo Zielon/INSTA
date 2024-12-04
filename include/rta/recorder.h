@@ -86,6 +86,7 @@ public:
     void set_neutral_camera();
     void save_depth(float *depth_cpu, const char *path, const char *name, Eigen::Vector2i res3d);
 
+    std::string m_render_config = "";
     bool m_is_recording = false;
     bool m_record_all = false;
     bool m_render_from_snapshot = false;

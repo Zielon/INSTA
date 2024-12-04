@@ -66,7 +66,7 @@ RTA_NAMESPACE_BEGIN
         virtual tcnn::GPUMatrix<float> surface_closest_point(const tcnn::GPUMatrix<float> &coords, cudaStream_t stream);
         virtual tcnn::GPUMatrix<tcnn::network_precision_t, tcnn::RM> point_density_flame_closest_point(const tcnn::GPUMatrix<float> &points, const tcnn::GPUMatrix<tcnn::network_precision_t, tcnn::RM> &density, float radius, cudaStream_t stream);
         virtual void raycast_flame(ngp::CudaRenderBuffer &render_buffer, const Eigen::Vector2i &max_res, const Eigen::Vector2f &focal_length, const Eigen::Matrix<float, 3, 4> &camera_matrix, const Eigen::Vector2f &screen_center, cudaStream_t stream);
-
+        std::shared_ptr<Recorder> m_recorder;
     private:
         tcnn::GPUMatrix<float> surface_closest_point_cpu(uint32_t n_elements, float *coords, cudaStream_t stream);
         tcnn::GPUMatrix<float> surface_closest_point_gpu(uint32_t n_elements, float *coords, cudaStream_t stream);
@@ -79,7 +79,6 @@ RTA_NAMESPACE_BEGIN
         void test_raycasting();
 
         ngp::ThreadPool m_pool;
-        std::shared_ptr<Recorder> m_recorder;
         SphereTracer m_tracer;
         std::vector<std::shared_ptr<TinyMesh>> m_meshes;
         std::shared_ptr<TinyMesh> m_canonical_shape = nullptr;

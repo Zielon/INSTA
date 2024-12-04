@@ -38,3 +38,5 @@ python postprocess.py -i ${OUTPUT}
 rm -rf ${OUTPUT}/background/
 
 echo "End!"
+
+# ./generate.sh /home/wojciech/projects/metrical-tracker/output/berna/ /home/wojciech/projects/INSTA/data/berna/ 600

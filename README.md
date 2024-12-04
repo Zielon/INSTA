@@ -56,6 +56,12 @@ The viewer options are the same as in the case of [instant-ngp](https://github.c
 Usage example
 
 ```shell
+# Run without GUI examples script
+./run.sh
+
+# Run cross reenactment based on deformation gradient transfer
+./run_transfer.sh
+
 # Training
 ./build/rta --config insta.json --scene data/obama --height 512 --width 512
 

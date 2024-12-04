@@ -226,6 +226,7 @@ void rta::Core::post_loading() {
     if (m_network_config.contains("horizontal_normals")) m_recorder->m_horizontal_normals = m_network_config["horizontal_normals"];
     if (m_network_config.contains("render_novel_trajectory")) m_recorder->m_record_all = m_network_config["render_novel_trajectory"];
     if (m_network_config.contains("render_from_snapshot")) m_recorder->m_render_from_snapshot = m_network_config["render_from_snapshot"];
+    if (m_network_config.contains("render_config")) m_recorder->m_render_config = m_network_config["render_config"];
     if (m_recorder->m_record_all)
         m_recorder->m_video_mode = VideoType::Floating;
 }

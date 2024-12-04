@@ -124,7 +124,7 @@ void rta::Recorder::imgui() {
     ImGui::Separator();
     ImGui::Text("Record video");
 //    if (ImGui::Button("Snapshot")) snapshot();
-    if (m_record_all && !m_is_recording && !m_single_step) m_video_mode = VideoType::Floating;
+    if (m_record_all && !m_is_recording && !m_single_step) m_video_mode = VideoType::Horizontal;
     if (ImGui::Button("Start")) start();
     ImGui::SameLine();
     if (ImGui::Button("Stop")) stop();
@@ -172,6 +172,10 @@ void rta::Recorder::start() {
     core->m_dataset_settings.is_training = false;
     core->m_dataset_settings.shuffle = false;
     std::string mode = "test";
+    if (!m_render_config.empty())
+        mode = m_render_config;
+    if(m_video_mode == VideoType::Horizontal)
+        mode = "horizontal";
     core->m_background_color.w() = 0.f;
     core->reload_training_data(true, mode);
     core->m_offscreen_rendering = false;
@@ -384,13 +388,13 @@ void rta::Recorder::set_floating_camera(size_t index) {
 
 //    m_ngp->first_training_view();
     m_ngp->reset_camera();
-
+    m_ngp->set_fov(17);
     m_ngp->m_camera = rt;
     m_ngp->m_smoothed_camera = rt;
 }
 
 void rta::Recorder::step() {
-    if ((m_ngp->m_training_step == m_training_steps_wait || m_render_from_snapshot) && !m_is_recording) {
+    if ((m_ngp->m_training_step == m_training_steps_wait || m_render_from_snapshot || m_ngp->early_stop) && !m_is_recording) {
         start();
     }
 

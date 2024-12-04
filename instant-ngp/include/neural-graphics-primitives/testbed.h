@@ -853,6 +853,7 @@ public:
     bool m_iso_surface_occ_grid = false;
 
 	uint32_t m_training_step = 0;
+	bool early_stop = false;
 	uint32_t m_training_batch_size = 1 << 18;
 	Ema m_loss_scalar = {EEmaType::Time, 100};
 	std::vector<float> m_loss_graph = std::vector<float>(256, 0.0f);
