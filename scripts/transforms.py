@@ -165,11 +165,13 @@ if __name__ == '__main__':
 
     create_input_images(src, f'{output}/background/')
 
+    data['frames'] = [None] * len(frames)
     with Pool(processes=8) as pool:
         params = [(frames[i], src, output) for i in range(len(frames))]
         for task in tqdm(pool.imap_unordered(dump_frame, params), total=len(frames)):
             if task is not None:
-                data['frames'].append(task)
+                id = int(Path(task['file_path']).stem)
+                data['frames'][id] = task
 
     for f in data["frames"]:
         f["transform_matrix"] = f["transform_matrix"].tolist()
