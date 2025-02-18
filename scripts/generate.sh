@@ -39,4 +39,4 @@ rm -rf ${OUTPUT}/background/
 
 echo "End!"
 
-# ./generate.sh /home/wojciech/projects/metrical-tracker/output/berna/ /home/wojciech/projects/INSTA/data/berna/ 600
+# ./generate.sh /home/wojciech/projects/metrical-tracker/output/duda/ /home/wojciech/projects/INSTA/data/duda/ 10

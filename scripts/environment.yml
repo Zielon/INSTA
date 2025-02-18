@@ -22,7 +22,6 @@ dependencies:
   - cycler=0.11.0=pyhd3eb1b0_0
   - dbus=1.13.18=hb2f20db_0
   - expat=2.4.4=h295c915_0
-  - ffmpeg=4.3=hf484d3e_0
   - filelock=3.9.0=py39h06a4308_0
   - flit-core=3.6.0=pyhd3eb1b0_0
   - fontconfig=2.13.1=h6c09931_0
@@ -126,7 +125,7 @@ dependencies:
       - asttokens==2.0.5
       - async-timeout==4.0.2
       - attrs==22.1.0
-      - av==8.0.3
+      # - av==8.0.3
       - babel==2.10.3
       - backcall==0.2.0
       - beautifulsoup4==4.11.1

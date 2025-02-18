@@ -172,10 +172,6 @@ void rta::Recorder::start() {
     core->m_dataset_settings.is_training = false;
     core->m_dataset_settings.shuffle = false;
     std::string mode = "test";
-    if (!m_render_config.empty())
-        mode = m_render_config;
-    if(m_video_mode == VideoType::Horizontal)
-        mode = "horizontal";
     core->m_background_color.w() = 0.f;
     core->reload_training_data(true, mode);
     core->m_offscreen_rendering = false;

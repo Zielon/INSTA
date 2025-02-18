@@ -23,7 +23,7 @@
 		"decay": 0.95,
 		"nested": {
 			"otype": "Adam",
-			"learning_rate": 0.002,
+			"learning_rate": 0.00175,
 			"beta1": 0.9,
 			"beta2": 0.99,
 			"epsilon": 1e-15,

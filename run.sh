@@ -2,7 +2,7 @@
 
 # Simple script showing how to run the RTA for multiple actors without GUI.
 
-actors=("bala" "biden")
+actors=("duda" "obama")
 
 for actor in "${actors[@]}"; do
   echo "Running for actor = $actor"
