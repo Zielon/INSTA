@@ -75,24 +75,24 @@ We are releasing part of our dataset together with publicly available preprocess
 The output of the training (**Record Video** in menu), including rendered frames, checkpoint, etc will be saved in the `./data/{actor}/experiments/{config}/debug`.
 After the specified number of max steps, the program will automatically either render frames using novel cameras (`All` option in GUI and `render_novel_trajectory` in config) or only the currently selected one in `Mode`, by default `Overlay\Test`.
 
-[Available avatars](https://keeper.mpdl.mpg.de/d/5ea4d2c300e9444a8b0b/). Click the selected avatar to download the training dataset and the checkpoint. The avatars have to be placed in the `data` folder.
+[Available avatars](https://drive.google.com/drive/folders/1LsVvr7PPwGlyK0qiTuDVUz4ihreHJgut?usp=sharing). Click the selected avatar to download the training dataset and the checkpoint. The avatars have to be placed in the `data` folder.
 <div align="center" dis>
     <table class="images" width="100%"  style="border:0px solid white; width:100%;">
         <tr style="border: 0px;">
-            <td style="border: 0px;"><a href="https://keeper.mpdl.mpg.de/f/53e9988994914c93bb51/?dl=1"><img src="documents/gifs/justin.gif" height="128" width="128"></a></td>
-            <td style="border: 0px;"><a href="https://keeper.mpdl.mpg.de/f/1a58d09b3b7442988c3e/?dl=1"><img src="documents/gifs/nf_03.gif" height="128" width="128"></a></td>
-            <td style="border: 0px;"><a href="https://keeper.mpdl.mpg.de/f/c3632aaba19542d49f1d/?dl=1"><img src="documents/gifs/nf_01.gif" height="128" width="128"></a></td>
-            <td style="border: 0px;"><a href="https://keeper.mpdl.mpg.de/f/f273e0d5c6c14d8892a0/?dl=1"><img src="documents/gifs/marcel.gif" height="128" width="128"></a></td>
-            <td style="border: 0px;"><a href="https://keeper.mpdl.mpg.de/f/9acb4822310c4d5aa555/?dl=1"><img src="documents/gifs/biden.gif" height="128" width="128"></a></td>
+            <td style="border: 0px;"><a href="https://drive.google.com/file/d/1fUs_TkPE5dxuostXafBPIOnoGBGWMWdr/view?usp=sharing"><img src="documents/gifs/justin.gif" height="128" width="128"></a></td>
+            <td style="border: 0px;"><a href="https://drive.google.com/file/d/1OVMab86QiGJsXFK90owZ-Pnv1kxPn83v/view?usp=sharing"><img src="documents/gifs/nf_03.gif" height="128" width="128"></a></td>
+            <td style="border: 0px;"><a href="https://drive.google.com/file/d/1egl1Rg6b75T3hiuxFlkNZGfW745Fo0SZ/view?usp=sharing"><img src="documents/gifs/nf_01.gif" height="128" width="128"></a></td>
+            <td style="border: 0px;"><a href="https://drive.google.com/file/d/1RFsuzjfuZvUvhE2rrR-et41s7-6ZTRt0/view?usp=sharing"><img src="documents/gifs/marcel.gif" height="128" width="128"></a></td>
+            <td style="border: 0px;"><a href="https://drive.google.com/file/d/1xHiDH_B2Qv0a5wgrieD1WmoxBnOfuw9u/view?usp=sharing"><img src="documents/gifs/biden.gif" height="128" width="128"></a></td>
         </tr>
     </table>
     <table class="images" width="100%"  style="border:0px solid white; width:100%;">
         <tr style="border: 0px;">
-            <td style="border: 0px;"><a href="https://keeper.mpdl.mpg.de/f/f1545b9e7ea74f9e802b/?dl=1"><img src="documents/gifs/obama.gif" height="128" width="128"></a></td>
-            <td style="border: 0px;"><a href="https://keeper.mpdl.mpg.de/f/ba379b9a5c384722939c/?dl=1"><img src="documents/gifs/wojtek_1.gif" height="128" width="128"></a></td>
-            <td style="border: 0px;"><a href="https://keeper.mpdl.mpg.de/f/0f81a65cbdee4e01bfae/?dl=1"><img src="documents/gifs/malte_1.gif" height="128" width="128"></a></td>
-            <td style="border: 0px;"><a href="https://keeper.mpdl.mpg.de/f/ae5a0b3ae4c84c25944c/?dl=1"><img src="documents/gifs/bala.gif" height="128" width="128"></a></td>
-            <td style="border: 0px;"><a href="https://keeper.mpdl.mpg.de/f/ece2fc07bbee424f80c6/?dl=1"><img src="documents/gifs/person_0004.gif" height="128" width="128"></a></td>
+            <td style="border: 0px;"><a href="https://drive.google.com/file/d/19clpdq6eQ4kcD9ndjrANu8q0iW774LYR/view?usp=sharing"><img src="documents/gifs/obama.gif" height="128" width="128"></a></td>
+            <td style="border: 0px;"><a href="https://drive.google.com/file/d/1e3gMUcozIzC3ZOmjl8dA3hfQdYRpu2e-/view?usp=sharing"><img src="documents/gifs/wojtek_1.gif" height="128" width="128"></a></td>
+            <td style="border: 0px;"><a href="https://drive.google.com/file/d/1a9z8C7HueAFzExQL-C1SQu9EHdJApxdY/view?usp=sharing"><img src="documents/gifs/malte_1.gif" height="128" width="128"></a></td>
+            <td style="border: 0px;"><a href="https://drive.google.com/file/d/1hq0O5yF1jQAIOF8eMgbAjD3ZlIM5Tv9Y/view?usp=sharing"><img src="documents/gifs/bala.gif" height="128" width="128"></a></td>
+            <td style="border: 0px;"><a href="https://drive.google.com/file/d/1ttoQfGfa3eRETc1uxLo4unjvxOiRzcCY/view?usp=sharing"><img src="documents/gifs/person_0004.gif" height="128" width="128"></a></td>
         </tr>
     </table>
 </div>
