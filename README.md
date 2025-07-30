@@ -62,12 +62,19 @@ Usage example
 # Run cross reenactment based on deformation gradient transfer
 ./run_transfer.sh
 
-# Training
+# Training with GUI
 ./build/rta --config insta.json --scene data/obama --height 512 --width 512
 
 # Loading from a checkpoint
 ./build/rta --config insta.json --scene data/obama/transforms_test.json --snapshot data/obama/snapshot.msgpack
 ```
+
+<div align="center"> 
+<img src="documents/insta.gif">
+<br>
+<i style="font-size: 1.05em;">For better visualization you can use our GUI application.</i>
+</div>
+<br>
 
 ### Dataset and Training
 
