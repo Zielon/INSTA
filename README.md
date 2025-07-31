@@ -78,7 +78,7 @@ Usage example
 
 ### Dataset and Training
 
-We are releasing part of our dataset together with publicly available preprocessed avatars from [NHA](https://github.com/philgras/neural-head-avatars), [NeRFace](https://github.com/gafniguy/4D-Facial-Avatars) and [IMAvatar](https://github.com/zhengyuf/IMavatar).
+We are releasing part of our dataset together with publicly available preprocessed avatars from [NHA](https://github.com/philgras/neural-head-avatars), [NeRFace](https://github.com/gafniguy/4D-Facial-Avatars) and [IMAvatar](https://github.com/zhengyuf/IMavatar). Each participant whose data was recorded in this study provided written consent for its release by signing this [document](./documents/Consent_general_english_ncs_video.pdf).
 The output of the training (**Record Video** in menu), including rendered frames, checkpoint, etc will be saved in the `./data/{actor}/experiments/{config}/debug`.
 After the specified number of max steps, the program will automatically either render frames using novel cameras (`All` option in GUI and `render_novel_trajectory` in config) or only the currently selected one in `Mode`, by default `Overlay\Test`.
 
