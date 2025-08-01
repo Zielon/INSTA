@@ -8,7 +8,7 @@
 <a href="https://youtu.be/HOgaeWTih7Q" target="_blank">Video&nbsp</a>
 <a href="https://arxiv.org/pdf/2211.12499v2.pdf" target="_blank">Paper&nbsp</a>
 <a href="https://zielon.github.io/insta/" target="_blank">Project Website&nbsp</a>
-<a href="https://keeper.mpdl.mpg.de/d/5ea4d2c300e9444a8b0b/" target="_blank"><b>Dataset&nbsp</b></a>
+<a href="#dataset-and-training"><b>Dataset&nbsp</b></a>
 <a href="https://github.com/Zielon/metrical-tracker" target="_blank">Face Tracker&nbsp</a>
 <a href="https://github.com/Zielon/INSTA-pytorch" target="_blank">INSTA Pytorch&nbsp</a>
 <a href="mailto:&#105;&#110;&#115;&#116;&#97;&#64;&#116;&#117;&#101;&#46;&#109;&#112;&#103;&#46;&#100;&#101;">Email</a>
@@ -78,7 +78,8 @@ Usage example
 
 ### Dataset and Training
 
-We are releasing part of our dataset together with publicly available preprocessed avatars from [NHA](https://github.com/philgras/neural-head-avatars), [NeRFace](https://github.com/gafniguy/4D-Facial-Avatars) and [IMAvatar](https://github.com/zhengyuf/IMavatar). Each participant whose data was recorded in this study provided written consent for its release by signing this [document](./documents/Consent_general_english_ncs_video.pdf).
+We are releasing part of our dataset together with publicly available preprocessed avatars from [NHA](https://github.com/philgras/neural-head-avatars), [NeRFace](https://github.com/gafniguy/4D-Facial-Avatars) and [IMAvatar](https://github.com/zhengyuf/IMavatar). Each participant whose data was recorded in this study provided written consent for its release by signing this [document](./documents/Consent_general_english_ncs_video.pdf). Access to those sequences can be requested via [Google Forms](https://docs.google.com/forms/d/e/1FAIpQLSecX-7Arzv_qVQWFdicNxcxmPmSQx46y6TxnBBN67m0hvkXiA/viewform?usp=sharing&ouid=114977764432146378365).
+
 The output of the training (**Record Video** in menu), including rendered frames, checkpoint, etc will be saved in the `./data/{actor}/experiments/{config}/debug`.
 After the specified number of max steps, the program will automatically either render frames using novel cameras (`All` option in GUI and `render_novel_trajectory` in config) or only the currently selected one in `Mode`, by default `Overlay\Test`.
 
@@ -96,9 +97,9 @@ After the specified number of max steps, the program will automatically either r
     <table class="images" width="100%"  style="border:0px solid white; width:100%;">
         <tr style="border: 0px;">
             <td style="border: 0px;"><a href="https://drive.google.com/file/d/19clpdq6eQ4kcD9ndjrANu8q0iW774LYR/view?usp=sharing"><img src="documents/gifs/obama.gif" height="128" width="128"></a></td>
-            <td style="border: 0px;"><a href="https://drive.google.com/file/d/1e3gMUcozIzC3ZOmjl8dA3hfQdYRpu2e-/view?usp=sharing"><img src="documents/gifs/wojtek_1.gif" height="128" width="128"></a></td>
-            <td style="border: 0px;"><a href="https://drive.google.com/file/d/1a9z8C7HueAFzExQL-C1SQu9EHdJApxdY/view?usp=sharing"><img src="documents/gifs/malte_1.gif" height="128" width="128"></a></td>
-            <td style="border: 0px;"><a href="https://drive.google.com/file/d/1hq0O5yF1jQAIOF8eMgbAjD3ZlIM5Tv9Y/view?usp=sharing"><img src="documents/gifs/bala.gif" height="128" width="128"></a></td>
+            <td style="border: 0px;"><a href="https://docs.google.com/forms/d/e/1FAIpQLSecX-7Arzv_qVQWFdicNxcxmPmSQx46y6TxnBBN67m0hvkXiA/viewform?usp=sharing&ouid=114977764432146378365"><img src="documents/gifs/wojtek_1.gif" height="128" width="128"></a></td>
+            <td style="border: 0px;"><a href="https://docs.google.com/forms/d/e/1FAIpQLSecX-7Arzv_qVQWFdicNxcxmPmSQx46y6TxnBBN67m0hvkXiA/viewform?usp=sharing&ouid=114977764432146378365"><img src="documents/gifs/malte_1.gif" height="128" width="128"></a></td>
+            <td style="border: 0px;"><a href="https://docs.google.com/forms/d/e/1FAIpQLSecX-7Arzv_qVQWFdicNxcxmPmSQx46y6TxnBBN67m0hvkXiA/viewform?usp=sharing&ouid=114977764432146378365"><img src="documents/gifs/bala.gif" height="128" width="128"></a></td>
             <td style="border: 0px;"><a href="https://drive.google.com/file/d/1ttoQfGfa3eRETc1uxLo4unjvxOiRzcCY/view?usp=sharing"><img src="documents/gifs/person_0004.gif" height="128" width="128"></a></td>
         </tr>
     </table>
